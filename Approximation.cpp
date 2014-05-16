@@ -81,7 +81,7 @@ void Approximation::work() {
         
         ofstream cip1(std::string("ciphertexts_order_") + std::to_string(order) + ".txt");
         for(ULONG ctr=0; cg.next(); ctr++){
-            uchar * input = cg.getCurCombination();
+            const uchar * input = cg.getCurCombination();
             
             // Evaluate cipher on current combinations.
             cip->evaluate(input, input + cip->getInputBlockSize(), output);

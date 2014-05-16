@@ -81,8 +81,9 @@ public:
     inline ULONG getTotalNum()          { return this->totalNum;        }
     inline ULONG getByteWidth()         { return this->byteWidth;       }
     inline ULONG getCounter()           { return this->counter;         }
-    inline ULONG * getCurState()        { return this->curState;        }
-    uchar * getCurCombination();
+    inline const ULONG * getCurState()   { return this->curState;        }
+    inline       ULONG * getCurStateEx() { return this->curState;        }
+    const uchar * getCurCombination();
     
     // Move to the next.
     bool next();

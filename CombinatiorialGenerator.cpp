@@ -74,7 +74,7 @@ void CombinatiorialGenerator::reset() {
 //    this->x = 0;
 }
 
-uchar* CombinatiorialGenerator::getCurCombination() {
+const uchar * CombinatiorialGenerator::getCurCombination() {
     // Generating combinations only on demand.
     // Using cached version of the bit representation of the current combination.
     if (curCombinationValid) return curCombination;
