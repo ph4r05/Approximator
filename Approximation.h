@@ -29,6 +29,10 @@ private:
     // Key & input parameters prepared for cipher input.
     uchar * finput;
     
+    // Cache polynomial coefficients for low order
+    // Vector<bool> should be specially optimized for storing booleans.
+    std::vector<bool> * coefficients[4];
+    
 public:
     Approximation();
     virtual ~Approximation();

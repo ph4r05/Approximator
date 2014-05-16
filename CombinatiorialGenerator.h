@@ -59,9 +59,9 @@ private:
     bool curCombinationValid;
     
     /**
-     * Internal state of the algorithm for generating all combinations.
+     * Internal state of the Knuth algorithm for generating all combinations.
      */
-    ULONG * c;
+    //ULONG * c;
     //long j;
     //long x;
     
@@ -82,11 +82,14 @@ public:
     inline ULONG getByteWidth()         { return this->byteWidth;       }
     inline ULONG getCounter()           { return this->counter;         }
     inline ULONG * getCurState()        { return this->curState;        }
-    inline ULONG * getC()               { return this->c;  }
     uchar * getCurCombination();
     
     // Move to the next.
     bool next();
+    
+    // Return coefficient of the quadratic term combination
+    static ULONG getQuadIdx(ULONG N, ULONG x1, ULONG x2);
+    static ULONG getCubeIdx(ULONG N, ULONG x1, ULONG x2, ULONG x3);
     
     /**
      * Compute binomial coefficient.

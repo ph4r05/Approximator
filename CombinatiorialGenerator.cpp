@@ -23,7 +23,6 @@ CombinatiorialGenerator::CombinatiorialGenerator(ULONG up, ULONG down) {
     this->counter = 0;
     this->curState = new ULONG[down];
     this->curCombination = new uchar[byteWidth];
-    this->c = new ULONG[up+2]; // Should be down+2, but never mind.
     this->reset();
 }
 
@@ -36,11 +35,6 @@ CombinatiorialGenerator::~CombinatiorialGenerator() {
     if (this->curCombination != NULL){
         delete[] this->curCombination;
         this->curCombination = NULL;
-    }
-    
-    if (this->c != NULL){
-        delete[] this->c;
-        this->c = NULL;
     }
 }
 
@@ -205,4 +199,37 @@ bool CombinatiorialGenerator::internalNext() {
 //    cout << " increasing c[" <<j<<"]=" << x << endl;
 //    j -= 1;
 //    return true;
+}
+
+ULONG CombinatiorialGenerator::getQuadIdx(ULONG N, ULONG x1, ULONG x2) {
+    // Index of this combination is sum of all previous combinations (N-2 + N-3 + ...)
+    // plus the ordering number of the x1x2 combination from the beginning of the x1 
+    // starting combinations.
+    //
+    // The result is same as SUM_{i=0}^{x1-1} Binomial(N-1-i, 1) + (x2-x1);
+    // 
+    //
+    const ULONG n = N-1;
+    ULONG idx = ((2*n*x1-x1*x1+x1)/2) + (x2-x1) - 1;
+    return idx;
+}
+
+ULONG CombinatiorialGenerator::getCubeIdx(ULONG N, ULONG x1, ULONG x2, ULONG x3) {
+    // Index of this combination is sum of all previous combinations
+    // plus the ordering number of the x1x2x3 combination from the beginning of the x1
+    // starting combinations.
+    //
+    // All previous combinations not starting with x1: SUM_{i=0}^{x1-1} Binomial(N-1-i, 2)
+    // because we have are looking for combinations of positions for x2x3, while
+    // the space is decreasing by 1 since x1 is moving also.
+    //
+    // result = SUM_{i=0}^{x1-1} Binomial(N-1-i, 2) + getQuadIdx(N-x1-1, x2, x3)
+    
+    ULONG res = 0;
+    for(uint i = 0; i<x1; i++){
+        res += binomial(N-1-i, 2);
+    }
+    
+    res += getQuadIdx(N-1-x1, x2, x3);
+    return res;
 }
