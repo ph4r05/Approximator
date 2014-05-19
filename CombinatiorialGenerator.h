@@ -58,13 +58,6 @@ private:
     uchar * curCombination;
     bool curCombinationValid;
     
-    /**
-     * Internal state of the Knuth algorithm for generating all combinations.
-     */
-    //ULONG * c;
-    //long j;
-    //long x;
-    
     void firstCombination();
     bool internalNext();
     

@@ -62,16 +62,6 @@ void CombinatiorialGenerator::reset() {
     // Reset counter
     counter = 0;
     started=false;
-    
-    // Knuth lexicographic ordering initialization.
-//    for(unsigned j = 1; j<=down; j++){
-//        c[j] = j-1;
-//    }
-//    
-//    c[down+1] = up;
-//    c[down+2] = 0;
-//    this->j = down-1;
-//    this->x = 0;
 }
 
 const uchar * CombinatiorialGenerator::getCurCombination() {
@@ -107,7 +97,7 @@ bool CombinatiorialGenerator::next() {
     if (!started){
         firstCombination();
         started=true;
-        counter+=1;
+        counter=0;
         return true;
     }
     
@@ -123,7 +113,6 @@ bool CombinatiorialGenerator::next() {
     counter+=1;    
     return true;
 }
-
 
 bool CombinatiorialGenerator::internalNext() {    
     // If we are on the end, 
@@ -152,53 +141,6 @@ bool CombinatiorialGenerator::internalNext() {
     }
     
     return true;
-    
-//    //
-//    // Knuth combinatorial generator was here but it is not working!
-//    //
-//    
-//    // T2 of the algorithm.
-//    if (j>0){
-//        x = j;
-//        c[j] = x; 
-//        j -= 1;
-//        cout << "t2; j="<<j<<"; x="<< x << "; c[j+1]=" << c[j+1] <<  endl;
-//        return true;
-//    }
-//    
-//    // T3[Easy case?] 
-//    if ((c[1]+1) < c[2]){
-//        c[1] += 1;
-//        cout << "easy" << endl;
-//        return true;
-//    } else {
-//        cout << "nnn" << endl;
-//        j = 2;
-//    }
-//    
-//    // T4[Find j].
-//    do {
-//        c[j-1] = j-2;
-//        x      = c[j]+1;
-//        if (x == c[j+1]){
-//            cout << "Equals x=" << x << endl;
-//            j += 1;
-//        }
-//        cout << "cc" << endl;
-//    } while(x == c[j+1]);
-//    cout << "current j: " << j << endl;
-//    
-//    // T5[Done?]
-//    if (j>down){
-//        cout << "Terminating " << endl;
-//        return false;
-//    }
-//    
-//    // T6. [Increase cj].
-//    c[j] = x; 
-//    cout << " increasing c[" <<j<<"]=" << x << endl;
-//    j -= 1;
-//    return true;
 }
 
 ULONG CombinatiorialGenerator::getQuadIdx(ULONG N, ULONG x1, ULONG x2) {
