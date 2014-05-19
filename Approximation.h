@@ -106,6 +106,15 @@ public:
      */
     int testPolynomialApproximation();
     
+    /**
+     * Performs self test on determined coefficient values.
+     * For low degree input we have to obtain exactly the same results from 
+     * cipher and from the approximation function.
+     * 
+     * @return 
+     */
+    int selftestApproximation();
+    
     ICipher * getCipher(){ return cip; }
     void      setCipher(ICipher * cip);
     
