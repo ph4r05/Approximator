@@ -63,8 +63,8 @@ typedef unsigned long ULONG;
 #define OWN_CEIL(x)  (    (((int)(x)) < (x)) ? ((int)(x))+1 : ((int)(x))    )
 #define OWN_FLOOR(x) (    (((int)(x)) < (x)) ? ((int)(x))-1 : ((int)(x))    )
 
-void dumpUcharHex(std::ostream & c, uchar* inp, unsigned int size);
-void dumpUlongHex(std::ostream & c, ULONG* inp, unsigned int size);
-void dumpUchar   (std::ostream & c, uchar * inp, unsigned int size);
+void dumpUcharHex(std::ostream & c, const uchar* inp, unsigned int size);
+void dumpUlongHex(std::ostream & c, const ULONG* inp, unsigned int size);
+void dumpUchar   (std::ostream & c, const uchar * inp, unsigned int size);
 
 #endif	/* BASE_H */
