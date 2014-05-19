@@ -69,11 +69,14 @@ ULONG CombinatiorialGenerator::binomial(ULONG n, ULONG k) {
 void CombinatiorialGenerator::reset() {
     // Reset internal state, set to the first 
     memset(curState, 0, sizeof(ULONG) * down);
-    memset(curCombination, 0, byteWidth);
+    memset(curCombination, 0, sizeof(uchar)*byteWidth);
+    memset(curUlongCombination, 0, sizeof(ULONG)*byteUlongWidth);
         
     // Reset counter
     counter = 0;
     started=false;
+    curCombinationValid=false;
+    curUlongCombinationValid=false;
 }
 
 const uchar * CombinatiorialGenerator::getCurCombination() {
@@ -82,7 +85,7 @@ const uchar * CombinatiorialGenerator::getCurCombination() {
     if (curCombinationValid) return curCombination;
     
     // Set bit representation from the current state.
-    memset(curCombination, 0, byteWidth);
+    memset(curCombination, 0, sizeof(uchar)*byteWidth);
     for(unsigned i = 0; i<down; i++){
         //cout << "; c_"<<i<<"=" << curState[i] << " ";
         curCombination[ curState[i]/8 ] |= 1u << (curState[i]%8);
@@ -97,7 +100,7 @@ const ULONG* CombinatiorialGenerator::getCurUlongCombination() {
     if (curUlongCombinationValid) return curUlongCombination;
     
     // Set bit representation from the current state.
-    memset(curUlongCombination, 0, byteUlongWidth);
+    memset(curUlongCombination, 0, SIZEOF_ULONG*byteUlongWidth);
     for(unsigned i = 0; i<down; i++){
         curUlongCombination[ curState[i]/(8*SIZEOF_ULONG) ] |= ((ULONG)1u) << (curState[i]%(8*SIZEOF_ULONG));
     }
