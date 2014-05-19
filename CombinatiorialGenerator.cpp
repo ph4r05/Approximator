@@ -40,7 +40,10 @@ CombinatiorialGenerator::~CombinatiorialGenerator() {
 
 ULONG CombinatiorialGenerator::binomial(ULONG n, ULONG k) {
     ULONG r = 1, d = n - k;
-
+    if (k==1) return n;
+    if (k==2) return (n*(n-1))/2;
+    if (k==3) return (n*(n-1)*(n-2))/6;    
+    
     /* choose the smaller of k and n - k */
     if (d > k) { k = d; d = n - k; }
 
