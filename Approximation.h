@@ -29,18 +29,55 @@ private:
     // Key & input parameters prepared for cipher input.
     uchar * finput;
     
-    // Cache polynomial coefficients for low order
+    // Cache polynomial coefficients for low order.
     // Vector<bool> should be specially optimized for storing booleans.
+    // Indexing is as follows coefficients[order][polynomial].at(coefficient index).
     std::vector<bool> * coefficients[4];
+    
+    // Limit on the term order for storage.
+    // Only terms of order/degree less than or equals to this limit will
+    // be stored and evaluated.
+    uint orderLimit;
+    
+    // Byte width of the input cipher.
+    // Key block size + message block size.
+    ULONG byteWidth;
+    
+    // Binomial sums for computing coefficient indexes for x1x2x3.
+    ULONG * cubeBinomialSums;
     
 public:
     Approximation();
     virtual ~Approximation();
     
+    /**
+     * Entry point.
+     */
     void work();
     
+    /**
+     * Initialization of the internal pre-computed tables.
+     */
+    void init();
+    
+    /**
+     * Returns the number of particular combination, assuming N=cipher input width.
+     * Uses precomputed values to optimize computation - cubeBinomialSums. 
+     * @param ULONG
+     */
+    ULONG getCubeIdx(ULONG x1, ULONG x2, ULONG x3);
+    
+    /**
+     * Evaluates function determined by coefficients 
+     * @param input
+     * @param key
+     * @param output
+     * @return 
+     */
+    int evaluateCoefficients(const unsigned char * input, unsigned char * output);
+    
     ICipher * getCipher(){ return cip; }
-    void      setCipher(ICipher * cip) { this->cip = cip; }
+    void      setCipher(ICipher * cip);
     
     void genMessages();
 };

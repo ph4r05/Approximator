@@ -17,32 +17,64 @@
 #include <cstring>
 #include <cstdlib> 
 #include <ctime> 
+#include <cassert>
 
 using namespace std;
 
-Approximation::Approximation() : cip(NULL), finput(NULL) {
+Approximation::Approximation() : cip(NULL), finput(NULL), cubeBinomialSums(NULL) {
 }
 
 Approximation::~Approximation() {
+    if (cubeBinomialSums!=NULL){
+        delete[] cubeBinomialSums;
+        cubeBinomialSums=NULL;
+    }
 }
 
-void Approximation::work() {
-    const unsigned byteWidth = cip->getInputBlockSize() + cip->getKeyBlockSize();
+void Approximation::setCipher(ICipher* cip) {
+    this->cip = cip;
+    this->byteWidth = cip->getInputBlockSize() + cip->getKeyBlockSize();
+}
+
+
+void Approximation::init() {
+    assert(cip!=NULL);
     
+    // Pre-compute cube binomial coefficients
+    cubeBinomialSums = new ULONG[8*byteWidth];
+    cubeBinomialSums[0] = 0ul;
+    
+    ULONG res = 0;
+    for(uint i = 1; i<8*byteWidth; i++){
+        res += CombinatiorialGenerator::binomial(8*byteWidth-i, 2);
+        cubeBinomialSums[i] = res;
+    }
+}
+
+ULONG Approximation::getCubeIdx(ULONG x1, ULONG x2, ULONG x3) {
+    const unsigned byteWidth = cip->getInputBlockSize() + cip->getKeyBlockSize();
+    return cubeBinomialSums[x1] + CombinatiorialGenerator::getQuadIdx(byteWidth-1-x1, x2, x3);
+}
+
+void Approximation::work() {    
     // Boundary on the term order to store term coefficients.
-    const uint order2store=3;
+    orderLimit=3;
     
     // Allocate input & key buffers
     uchar * output = new uchar[cip->getOutputBlockSize()];
     finput         = new uchar[byteWidth];
     uchar * key    = finput + cip->getInputBlockSize();
     
-    // Allocating space for the coefficients.
+    // Further pre-computation & initialization.
+    init();
+    
+    // Allocating space for the coefficients, for each output polynomial we
+    // allocate separate coefficients vector.
     for(unsigned int i = 0; i<4; i++){
         coefficients[i] = new std::vector<bool>[8 * cip->getOutputBlockSize()];
     }
     
-    // Generate ciphertext for constant    
+    // Generate ciphertext for calculating constant term (key=0, message=0).
     memset(finput, 0, byteWidth);
     cip->evaluate(finput, key, output);
     
@@ -57,7 +89,7 @@ void Approximation::work() {
         coefs[i] = new ofstream(std::string("poly_") + std::to_string(i) + ".txt");
     }
     
-    // Read output to constants.
+    // Read output of encryption and obtain constant terms.
     for(unsigned int i = 0; i < 8 * cip->getOutputBlockSize(); i++){
         coefficients[0][i].resize(1, 0);
         coefficients[0][i].at(0) = (output[i/8] & (1u<<(i%8))) > 0;
@@ -65,8 +97,10 @@ void Approximation::work() {
     }
     
     // Generate order1 .. order3 cipher data
-    for(unsigned order=1; order<=order2store; order++){
+    for(unsigned order=1; order<=orderLimit; order++){
         CombinatiorialGenerator cg(byteWidth*8, order);
+        CombinatiorialGenerator cgQuadratic(order, 2);
+        CombinatiorialGenerator cgCubic(order, 3);
         
         cout << "Starting with order: " 
                 << order 
@@ -102,18 +136,20 @@ void Approximation::work() {
                 //
                 // Obtain ciphertext bit corresponding to the current polynomial. 
                 bool curValue = (output[i/8] & (1u<<(i%8))) > 0;
-                // XOR constant
+                
+                // 1. XOR constant
                 curValue ^= coefficients[0][i].at(0);
-                // XOR monomials included in current combination, if applicable.
+                
+                // 2. XOR monomials included in current combination, if applicable.
                 for(uint ti=0; order>1 && ti<order; ti++){
                     curValue ^= coefficients[1][i].at(cg.getCurState()[ti]);
                 }
-                // XOR all quadratic terms, if applicable.
+                
+                // 3. XOR all quadratic terms, if applicable.
                 // Using combinations generator to generate all quadratic terms 
                 // that are possible to construct using variables present in current term;
                 if (order>2){
-                    CombinatiorialGenerator cgQuadratic(order, 2);
-                    for(; cgQuadratic.next(); ){
+                    for(cgQuadratic.reset(); cgQuadratic.next(); ){
                         ULONG idx = CombinatiorialGenerator::getQuadIdx(
                                 8*byteWidth, 
                                 cg.getCurState()[cgQuadratic.getCurState()[0]],  // first var. idx. in quadr. term. 
@@ -122,14 +158,13 @@ void Approximation::work() {
                         curValue ^= coefficients[2][i].at(idx);
                     }
                 }
-                // XOR all cubic terms, if applicable.
+                
+                // 4. XOR all cubic terms, if applicable.
                 // Using combinations generator to generate all cubic terms 
                 // that are possible to construct using variables present in current term;
-                if (order>3 && order2store>=3){
-                    CombinatiorialGenerator cgCubic(order, 3);
-                    for(; cgCubic.next(); ){
-                        ULONG idx = CombinatiorialGenerator::getCubeIdx(
-                                8*byteWidth, 
+                if (order>3 && orderLimit>=3){
+                    for(cgCubic.reset(); cgCubic.next(); ){
+                        ULONG idx = getCubeIdx(
                                 cg.getCurState()[cgCubic.getCurState()[0]],  // first var. idx. in quadr. term. 
                                 cg.getCurState()[cgCubic.getCurState()[1]],  // second var. idx. in quadr. term.
                                 cg.getCurState()[cgCubic.getCurState()[2]]); // third var. idx. in quadr. term.
@@ -139,17 +174,17 @@ void Approximation::work() {
                 }
                 
                 // Store only for limited level...
-                for(uint ti=0; order<=order2store && ti<order; ti++){
+                for(uint ti=0; order<=orderLimit && ti<order; ti++){
                     coefficients[order][i].at(order*cg.getCounter() + ti) = curValue;
                 }
                 
                 // If term is too high, cannot continue since we don not have lower terms stored.
-                if (order>=order2store+1){
+                if (order>=orderLimit+1){
                     break;
                 }
                 
                 // Dump terms to the file, only if term is present.
-                if (order<=order2store+1 && curValue){
+                if (order<=orderLimit+1 && curValue){
                     for(uint ti=0; ti<order; ti++){
                         (*coefs[i]) << "x_" << setw(4) << setfill('0') << right << (uint)(*(cg.getCurState()+ti));
                     }
@@ -167,6 +202,10 @@ void Approximation::work() {
         }
     }
     
+    // Here we test the accuracy of the high order approximation, random key,
+    // random message. 
+    
+    
     // Free memory allocated for coefficients.
     for(unsigned int i = 0; i < 8 * cip->getOutputBlockSize(); i++){
         coefs[i]->close();
@@ -178,6 +217,47 @@ void Approximation::work() {
     
     cout << "Generating finished" << endl;
 }
+
+int Approximation::evaluateCoefficients(const unsigned char* input, unsigned char* output) {
+    // We can assume that approximate half of the coefficients are enabled/present
+    // in the resulting polynomial, thus evaluation is based on the iteration of 
+    // the combinatorial generator and reading coefficient by coefficient.
+    const uint numPolynomials = 8*cip->getOutputBlockSize();
+    const uint bitWidth = 8*byteWidth;
+    
+    // Reset output buffer, only ones will be set here, has to be set to zero.
+    memset(output, 0, cip->getOutputBlockSize());
+    
+    for(uint pidx=0; pidx < numPolynomials; pidx++){
+        // Evaluate polynomial pidx on the input provided.
+        
+        // 1. Use constant term for initialization.
+        bool res = coefficients[0][pidx].at(0);
+        
+        // 2. linear terms
+        for(uint j=0; j<bitWidth; j++){
+            res ^= (input[j/8] & (1u << (j%8))) & coefficients[1][pidx].at(j);
+        }
+        
+        // 3. quadratic and cubic terms, quartic and higher if applicable.
+        for(uint order=2; order<=orderLimit; order++){
+            CombinatiorialGenerator cgen(bitWidth, order);
+            for(; cgen.next(); ){
+                
+                
+                
+            }
+        }
+        
+        // Store result to the output buffer.
+        if (res){
+            output[pidx/8] |= (1ul << (pidx%8));
+        }
+    }
+    
+    return 0;
+}
+
 
 void Approximation::genMessages() {
     const unsigned byteWidth = cip->getInputBlockSize() + cip->getKeyBlockSize();
