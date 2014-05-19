@@ -20,7 +20,7 @@ void ProgressMonitor::setCur(double current) {
     
     if (current >= (last+step)){
         // How many dost to echo ?
-        const unsigned toEcho = floor((current+0.00001-last) / step);
+        const unsigned toEcho = floor((current+0.01*step-last) / step);
         //cout << "curr="<<current<<"; last="<<last<<"; toecho="<<toEcho<<"; step="<<step<<endl;
         
         for(unsigned i=0; i<toEcho; i++){
@@ -29,7 +29,7 @@ void ProgressMonitor::setCur(double current) {
         cout << flush;
         
         // Set last to the low multiple of step.
-        last = floor((current+0.00001) / step) * step;
+        last = floor((current+0.01*step) / step) * step;
     }
 }
 
