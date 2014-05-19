@@ -39,6 +39,9 @@ private:
     // be stored and evaluated.
     uint orderLimit;
     
+    // Flag telling whether to dump coefficients to the file or not.
+    bool dumpCoefsToFile;
+    
     // Byte width of the input cipher.
     // Key block size + message block size.
     ULONG byteWidth;
@@ -75,6 +78,13 @@ public:
      * @return 
      */
     int evaluateCoefficients(const unsigned char * input, unsigned char * output);
+    
+    /**
+     * Tests polynomial approximation of the cipher.
+     * Pre-computed coefficients are used.
+     * @return 
+     */
+    int testPolynomialApproximation();
     
     ICipher * getCipher(){ return cip; }
     void      setCipher(ICipher * cip);

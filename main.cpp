@@ -24,6 +24,15 @@ int main(int argc, char** argv) {
     ap.work();
     ap.genMessages();
     
+    /*cout << "Start" << endl;
+    for(uint i=0; i<1000; i++){
+        CombinatiorialGenerator cgen(256, 2);
+        for(uint k=0; cgen.next(); k++){
+            ;
+        }
+    }
+    cout << "end" << endl;*/
+    
     return 0;
 }
 

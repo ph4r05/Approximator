@@ -7,6 +7,7 @@
 
 #include "Approximation.h"
 #include "CombinatiorialGenerator.h"
+#include "ProgressMonitor.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -18,13 +19,19 @@
 #include <cstdlib> 
 #include <ctime> 
 #include <cassert>
+#include <unistd.h>
 
 using namespace std;
 
-Approximation::Approximation() : cip(NULL), finput(NULL), cubeBinomialSums(NULL) {
+Approximation::Approximation() : cip(NULL), finput(NULL), dumpCoefsToFile(false), cubeBinomialSums(NULL) {
 }
 
 Approximation::~Approximation() {
+    if (finput!=NULL){
+        delete[] finput;
+        finput=NULL;
+    }
+    
     if (cubeBinomialSums!=NULL){
         delete[] cubeBinomialSums;
         cubeBinomialSums=NULL;
@@ -58,7 +65,7 @@ ULONG Approximation::getCubeIdx(ULONG x1, ULONG x2, ULONG x3) {
 
 void Approximation::work() {    
     // Boundary on the term order to store term coefficients.
-    orderLimit=3;
+    orderLimit=2;
     
     // Allocate input & key buffers
     uchar * output = new uchar[cip->getOutputBlockSize()];
@@ -92,29 +99,32 @@ void Approximation::work() {
     // Read output of encryption and obtain constant terms.
     for(unsigned int i = 0; i < 8 * cip->getOutputBlockSize(); i++){
         coefficients[0][i].resize(1, 0);
-        coefficients[0][i].at(0) = (output[i/8] & (1u<<(i%8))) > 0;
-        (*coefs[i]) << ((uint)coefficients[0][i].at(0)) << endl;
+        coefficients[0][i][0] = (output[i/8] & (1u<<(i%8))) > 0;
+        (*coefs[i]) << ((uint)coefficients[0][i][0]) << endl;
     }
     
     // Generate order1 .. order3 cipher data
     for(unsigned order=1; order<=orderLimit; order++){
         CombinatiorialGenerator cg(byteWidth*8, order);
-        CombinatiorialGenerator cgQuadratic(order, 2);
-        CombinatiorialGenerator cgCubic(order, 3);
+        CombinatiorialGenerator cgQuadratic(order > 2 ? order : 2, 2);
+        CombinatiorialGenerator cgCubic(order > 3 ? order : 3, 3);
         
         cout << "Starting with order: " 
                 << order 
+                << "; combinations: " << cg.getTotalNum()
                 << "; number of bytes to store coefficients: " 
-                << (8 * cip->getOutputBlockSize() * order * cg.getTotalNum() / 8)
+                << (8 * cip->getOutputBlockSize() * cg.getTotalNum() / 8)
                 << endl;
+        cout << " ";
         
         // Generate coefficients for this order & store it to the vector.
         for(unsigned int i = 0; order<=3 && i < 8 * cip->getOutputBlockSize(); i++){
-            coefficients[order][i].resize(order*(cg.getTotalNum()+1), 0);
+            coefficients[order][i].resize(cg.getTotalNum()+1, 0);
         }
         
+        ProgressMonitor pm(0.01);
         ofstream cip1(std::string("ciphertexts_order_") + std::to_string(order) + ".txt");
-        for(ULONG ctr=0; cg.next(); ctr++){
+        for(; cg.next(); ){
             const uchar * input = cg.getCurCombination();
             
             // Evaluate cipher on current combinations.
@@ -138,11 +148,11 @@ void Approximation::work() {
                 bool curValue = (output[i/8] & (1u<<(i%8))) > 0;
                 
                 // 1. XOR constant
-                curValue ^= coefficients[0][i].at(0);
+                curValue ^= coefficients[0][i][0];
                 
                 // 2. XOR monomials included in current combination, if applicable.
                 for(uint ti=0; order>1 && ti<order; ti++){
-                    curValue ^= coefficients[1][i].at(cg.getCurState()[ti]);
+                    curValue ^= coefficients[1][i][cg.getCurState()[ti]];
                 }
                 
                 // 3. XOR all quadratic terms, if applicable.
@@ -155,7 +165,7 @@ void Approximation::work() {
                                 cg.getCurState()[cgQuadratic.getCurState()[0]],  // first var. idx. in quadr. term. 
                                 cg.getCurState()[cgQuadratic.getCurState()[1]]); // second var. idx. in quadr. term.
                         
-                        curValue ^= coefficients[2][i].at(idx);
+                        curValue ^= coefficients[2][i][idx];
                     }
                 }
                 
@@ -169,14 +179,12 @@ void Approximation::work() {
                                 cg.getCurState()[cgCubic.getCurState()[1]],  // second var. idx. in quadr. term.
                                 cg.getCurState()[cgCubic.getCurState()[2]]); // third var. idx. in quadr. term.
                         
-                        curValue ^= coefficients[3][i].at(idx);
+                        curValue ^= coefficients[3][i][idx];
                     }
                 }
                 
-                // Store only for limited level...
-                for(uint ti=0; order<=orderLimit && ti<order; ti++){
-                    coefficients[order][i].at(order*cg.getCounter() + ti) = curValue;
-                }
+                // Store value of the current coefficient on his place in the coef. vector.
+                coefficients[order][i][cg.getCounter()] = curValue;
                 
                 // If term is too high, cannot continue since we don not have lower terms stored.
                 if (order>=orderLimit+1){
@@ -184,7 +192,7 @@ void Approximation::work() {
                 }
                 
                 // Dump terms to the file, only if term is present.
-                if (order<=orderLimit+1 && curValue){
+                if (dumpCoefsToFile && order<=orderLimit+1 && curValue){
                     for(uint ti=0; ti<order; ti++){
                         (*coefs[i]) << "x_" << setw(4) << setfill('0') << right << (uint)(*(cg.getCurState()+ti));
                     }
@@ -192,8 +200,14 @@ void Approximation::work() {
                     (*coefs[i]) << " + ";
                 }
             }
+            
+            // Progress monitoring.
+            double cProg = (double)cg.getCounter() / (double)cg.getTotalNum();
+            pm.setCur(cProg);
         }
+        pm.setCur(1.0);
         
+        cout << endl;
         cip1.close();
         
         // Make a newline at the end of the current order.
@@ -204,7 +218,9 @@ void Approximation::work() {
     
     // Here we test the accuracy of the high order approximation, random key,
     // random message. 
-    
+    cout << "Testing approximation quality: " << endl << " ";
+    sleep(1);
+    testPolynomialApproximation();
     
     // Free memory allocated for coefficients.
     for(unsigned int i = 0; i < 8 * cip->getOutputBlockSize(); i++){
@@ -214,9 +230,66 @@ void Approximation::work() {
     }
     
     delete[] coefs;
+    delete[] output;
     
     cout << "Generating finished" << endl;
 }
+
+int Approximation::testPolynomialApproximation() {
+     // Allocate input & key buffers
+    uchar * outputCip = new uchar[cip->getOutputBlockSize()];
+    uchar * outputPol = new uchar[cip->getOutputBlockSize()];
+    uchar * input  = new uchar[byteWidth];
+    ULONG * hits   = new ULONG[8*byteWidth];
+    const ULONG genLimit = 100ul;
+    
+    // Seed (primitive).
+    srand((unsigned)time(0)); 
+    for(uint p=0; p<8*byteWidth; p++){
+        hits[p] = 0;
+    }
+    
+    // Generate 2^20 random messages and keys, evaluate it
+    // both on cipher and polynomials.
+    ProgressMonitor pm(0.01);
+    for(unsigned long i=0; i<genLimit; i++){
+        // Generate cipher input at random.
+        for(unsigned int k=0; k<byteWidth; k++){ 
+            input[k] = (rand() % (0xffu+1)); 
+        }
+        
+        // Evaluate cipher.
+        cip->evaluate(input, input + cip->getInputBlockSize(), outputCip);
+        
+        // Evaluate polynomial.
+        this->evaluateCoefficients(input, outputPol);
+        
+        // Compute statistics - number of hits for individual polynomial.
+        for(uint p=0; p<8*byteWidth; p++){
+            hits[p] += (outputCip[p/8] & (1u << (p%8))) == (outputPol[p/8] & (1u << (p%8)));
+        }
+        
+        // Progress monitoring.
+        double cProg = (double)i / (double)genLimit;
+        pm.setCur(cProg);
+    }
+    pm.setCur(1.0);
+    
+    cout << endl << "Approximation quality test finished." << endl;
+    for(uint p=0; p<8*byteWidth; p++){
+        cout << "  f_" << setw(4) << setfill('0') << right << p << " = ";
+        cout << ((double)hits[p] / (double)genLimit) << endl;
+    }
+    
+    // Free the memory.
+    delete[] hits;
+    delete[] outputCip;
+    delete[] outputPol;
+    delete[] input;
+    
+    return 1;
+}
+
 
 int Approximation::evaluateCoefficients(const unsigned char* input, unsigned char* output) {
     // We can assume that approximate half of the coefficients are enabled/present
@@ -232,20 +305,37 @@ int Approximation::evaluateCoefficients(const unsigned char* input, unsigned cha
         // Evaluate polynomial pidx on the input provided.
         
         // 1. Use constant term for initialization.
-        bool res = coefficients[0][pidx].at(0);
+        bool res = coefficients[0][pidx][0];
         
         // 2. linear terms
         for(uint j=0; j<bitWidth; j++){
-            res ^= (input[j/8] & (1u << (j%8))) & coefficients[1][pidx].at(j);
+            res ^= coefficients[1][pidx][j] & ((input[j/8] & (1u << (j%8))) > 0);
         }
         
         // 3. quadratic and cubic terms, quartic and higher if applicable.
         for(uint order=2; order<=orderLimit; order++){
             CombinatiorialGenerator cgen(bitWidth, order);
             for(; cgen.next(); ){
+                const ULONG ctr = cgen.getCounter();
+                const ULONG * state = cgen.getCurState();
                 
+                if (coefficients[order][pidx][ctr]==0) {
+                    // This coefficient is zero, term would not have any contribution.
+                    continue;
+                }
                 
+                // Coefficient is one, evaluate this term on the input data.
+                bool termVal=1;
                 
+                // State is array of size $order, in each element it contains 
+                // index of the variable present in the term.
+                // Example: the first state for order=3 is {0,1,2}
+                // What corresponds to x_0x_1x_2, thus bits 0,1,2 has to be multiplied.
+                for(uint i=0; i<order && termVal; i++){
+                    termVal &= ((input[state[i]/8] & (1u << (state[i]%8))) > 0);
+                }
+                
+                res ^= termVal;
             }
         }
         
@@ -257,7 +347,6 @@ int Approximation::evaluateCoefficients(const unsigned char* input, unsigned cha
     
     return 0;
 }
-
 
 void Approximation::genMessages() {
     const unsigned byteWidth = cip->getInputBlockSize() + cip->getKeyBlockSize();

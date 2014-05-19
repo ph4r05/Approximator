@@ -39,6 +39,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/Approximation.o \
 	${OBJECTDIR}/CombinatiorialGenerator.o \
 	${OBJECTDIR}/ICipher.o \
+	${OBJECTDIR}/ProgressMonitor.o \
 	${OBJECTDIR}/base.o \
 	${OBJECTDIR}/main.o
 
@@ -86,6 +87,11 @@ ${OBJECTDIR}/ICipher.o: ICipher.cpp
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
+
+${OBJECTDIR}/ProgressMonitor.o: ProgressMonitor.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ProgressMonitor.o ProgressMonitor.cpp
 
 ${OBJECTDIR}/base.o: base.cpp 
 	${MKDIR} -p ${OBJECTDIR}
