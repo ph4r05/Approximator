@@ -29,10 +29,24 @@ private:
     // Key & input parameters prepared for cipher input.
     uchar * finput;
     
+    // Input & output blocks defined on ulongs to speed up computation.
+    // During approximated function evaluation these are used as buffers.
+    ULONG * ulongInp;
+    ULONG * ulongOut;
+    
     // Cache polynomial coefficients for low order.
-    // Vector<bool> should be specially optimized for storing booleans.
-    // Indexing is as follows coefficients[order][polynomial].at(coefficient index).
-    std::vector<bool> * coefficients[4];
+    // Indexing is as follows coefficients[order][coefficient index][polyout].
+    //
+    // Size of this array can be precomputed from the cipher.
+    // Let iw = input width of the cipher in bytes (message+key).
+    // Let ow = output width of the cipher in bytes.
+    //
+    // Then second dimension is number of all possible terms with specified order ord.
+    // In particular it is Binomial(8*iw, ord).
+    // Third dimension is ceil(ow/sizeof(ulong)).
+    // In order to optimize memory storage/access of/to this structure
+    // 2nd and 3rd dimension are merged to one.
+    std::vector<ULONG> coefficients[5];
     
     // Limit on the term order for storage.
     // Only terms of order/degree less than or equals to this limit will
@@ -45,6 +59,12 @@ private:
     // Byte width of the input cipher.
     // Key block size + message block size.
     ULONG byteWidth;
+    
+    // Size of the output block of the cipher in ulong types.
+    ULONG outputWidthUlong;
+    
+    // Size of the input block (message+key) of the cipher in ulong types.
+    ULONG inputWidthUlong;
     
     // Binomial sums for computing coefficient indexes for x1x2x3.
     ULONG * cubeBinomialSums;

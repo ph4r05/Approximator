@@ -72,7 +72,6 @@ private:
     bool curUlongCombinationValid;
     
     void firstCombination();
-    bool internalNext();
     
 public:
     CombinatiorialGenerator(ULONG up, ULONG down);

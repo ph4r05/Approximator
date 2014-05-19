@@ -128,21 +128,11 @@ bool CombinatiorialGenerator::next() {
         return true;
     }
     
+    //
     // Move internal state to the next combination.
-    bool inext = internalNext();
+    //
+    bool inext = true;
     
-    // If is already terminated, nothing to do next.
-    if (!inext) return inext;
-    
-    // Move happened.
-    // Invalidate current bit representation of the combination.
-    curCombinationValid=false;
-    curUlongCombinationValid = false;
-    counter+=1;    
-    return true;
-}
-
-bool CombinatiorialGenerator::internalNext() {    
     // If we are on the end, 
     curState[down-1]+=1;
     
@@ -156,11 +146,11 @@ bool CombinatiorialGenerator::internalNext() {
 
         // Terminating algorithm? All combinations were generated.
         if (x<0){
-            return false;
+            inext=false;
         }
 
         // If some shift happened, do the shifting.
-        if (x!=down-1){
+        if (inext && x!=down-1){
             curState[x]+=1;
             for(unsigned y=1; y<=(down-1-x); y++){
                 curState[x+y]=curState[x]+y;
@@ -168,6 +158,14 @@ bool CombinatiorialGenerator::internalNext() {
         }
     }
     
+    // If is already terminated, nothing to do next.
+    if (!inext) return inext;
+    
+    // Move happened.
+    // Invalidate current bit representation of the combination.
+    curCombinationValid=false;
+    curUlongCombinationValid = false;
+    counter+=1;    
     return true;
 }
 

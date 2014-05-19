@@ -22,13 +22,22 @@ int main(int argc, char** argv) {
     ap.setCipher(&c);
     
     ap.work();
-    ap.genMessages();
+    //ap.genMessages();
     
     /*cout << "Start" << endl;
     for(uint i=0; i<1000; i++){
         CombinatiorialGenerator cgen(256, 2);
         for(uint k=0; cgen.next(); k++){
             ;
+        }
+    }
+    cout << "end" << endl;*/
+    
+    /*cout << "Start" << endl;
+    ULONG acc=0;
+    for(uint i=0; i<100; i++){
+        for(ULONG k=0; k<8400000;k++){
+            acc ^= k*i;
         }
     }
     cout << "end" << endl;*/
