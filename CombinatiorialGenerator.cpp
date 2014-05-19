@@ -17,12 +17,15 @@ CombinatiorialGenerator::CombinatiorialGenerator(ULONG up, ULONG down) {
     this->up = up;
     this->down = down;
     this->byteWidth = OWN_CEIL((double)up / 8.0);
+    this->byteUlongWidth = OWN_CEIL((double)up / (8.0 * SIZEOF_ULONG));
     this->totalNum = binomial(up, down);
     
     this->curCombinationValid = false;
+    this->curUlongCombinationValid = false;
     this->counter = 0;
     this->curState = new ULONG[down];
     this->curCombination = new uchar[byteWidth];
+    this->curUlongCombination = new ULONG[byteUlongWidth];
     this->reset();
 }
 
@@ -36,13 +39,19 @@ CombinatiorialGenerator::~CombinatiorialGenerator() {
         delete[] this->curCombination;
         this->curCombination = NULL;
     }
+    
+    if (this->curUlongCombination != NULL){
+        delete[] this->curUlongCombination;
+        this->curUlongCombination = NULL;
+    }
 }
 
 ULONG CombinatiorialGenerator::binomial(ULONG n, ULONG k) {
     ULONG r = 1, d = n - k;
+    if (k==0) return 1ul;
     if (k==1) return n;
-    if (k==2) return (n*(n-1))/2;
-    if (k==3) return (n*(n-1)*(n-2))/6;    
+    if (k==2) return (n*(n-1))/2ul;
+    if (k==3) return (n*(n-1)*(n-2))/6ul;    
     
     /* choose the smaller of k and n - k */
     if (d > k) { k = d; d = n - k; }
@@ -82,6 +91,21 @@ const uchar * CombinatiorialGenerator::getCurCombination() {
     return curCombination;
 }
 
+const ULONG* CombinatiorialGenerator::getCurUlongCombination() {
+    // Generating combinations only on demand.
+    // Using cached version of the bit representation of the current combination.
+    if (curUlongCombinationValid) return curUlongCombination;
+    
+    // Set bit representation from the current state.
+    memset(curUlongCombination, 0, byteUlongWidth);
+    for(unsigned i = 0; i<down; i++){
+        curUlongCombination[ curState[i]/(8*SIZEOF_ULONG) ] |= ((ULONG)1u) << (curState[i]%(8*SIZEOF_ULONG));
+    }
+    curUlongCombinationValid=true;
+    return curUlongCombination;
+}
+
+
 void CombinatiorialGenerator::firstCombination() {
     // Initialize current state properly.
     for(unsigned j = 0; j<down; j++){
@@ -113,6 +137,7 @@ bool CombinatiorialGenerator::next() {
     // Move happened.
     // Invalidate current bit representation of the combination.
     curCombinationValid=false;
+    curUlongCombinationValid = false;
     counter+=1;    
     return true;
 }

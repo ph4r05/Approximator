@@ -32,7 +32,12 @@ private:
     /**
      * Number of bytes to represent the combination. 
      */
-    ULONG byteWidth;  
+    ULONG byteWidth; 
+    
+    /**
+     * Number of ULONGs to represent the combination.
+     */
+    ULONG byteUlongWidth; 
     
     /**
      * if false then the generator is before beginning, next has to be called to
@@ -58,6 +63,14 @@ private:
     uchar * curCombination;
     bool curCombinationValid;
     
+    /**
+     * Current combination generated - bit array of given size with given combination.
+     * ULONG representation for computation later.
+     * Length of this array = CEIL(up/8/SIZEOF_ULONG).
+     */
+    ULONG * curUlongCombination;
+    bool curUlongCombinationValid;
+    
     void firstCombination();
     bool internalNext();
     
@@ -77,6 +90,7 @@ public:
     inline const ULONG * getCurState()   { return this->curState;        }
     inline       ULONG * getCurStateEx() { return this->curState;        }
     const uchar * getCurCombination();
+    const ULONG * getCurUlongCombination();
     
     // Move to the next.
     bool next();
