@@ -72,8 +72,7 @@ void Approximation::init() {
         cubeBinomialSums[i] = res;
     }
     
-    // Allocating space for the coefficients, for each output polynomial we
-    // allocate separate coefficients vector.
+    // Allocating space for the coefficients.
     for(unsigned int order = 0; order<=orderLimit; order++){
         // Compute the size of coefficient array.
         // Binomial(8*byteWidth, order) * outputWidthUlong.
@@ -333,7 +332,7 @@ int Approximation::testPolynomialApproximation() {
     uchar * outputPol = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
     ULONG * hits   = new ULONG[8*cip->getOutputBlockSize()];
-    const ULONG genLimit = 1000ul;
+    const ULONG genLimit = 10000ul;
     
     // Seed (primitive).
     srand((unsigned)time(0)); 

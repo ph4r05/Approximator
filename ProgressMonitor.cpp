@@ -24,7 +24,7 @@ void ProgressMonitor::setCur(double current) {
         //cout << "curr="<<current<<"; last="<<last<<"; toecho="<<toEcho<<"; step="<<step<<endl;
         
         for(unsigned i=0; i<toEcho; i++){
-            cout << "." << flush;
+            cout << ".";
         } 
         cout << flush;
         
