@@ -206,9 +206,8 @@ ULONG CombinatiorialGenerator::getQuadIdx(ULONG N, ULONG x1, ULONG x2) {
     // plus the ordering number of the x1x2 combination from the beginning of the x1 
     // starting combinations.
     //
-    // The result is same as SUM_{i=0}^{x1-1} Binomial(N-1-i, 1) + (x2-x1);
+    // The result is the same as SUM_{i=0}^{x1-1} Binomial(N-1-i, 1) + (x2-x1);
     // 
-    //
     const ULONG n = N-1;
     ULONG idx = ((2*n*x1-x1*x1+x1)/2) + (x2-x1) - 1;
     return idx;
@@ -219,15 +218,22 @@ ULONG CombinatiorialGenerator::getCubeIdx(ULONG N, ULONG x1, ULONG x2, ULONG x3)
     // plus the ordering number of the x1x2x3 combination from the beginning of the x1
     // starting combinations.
     //
-    // All previous combinations not starting with x1: SUM_{i=0}^{x1-1} Binomial(N-1-i, 2)
-    // because we have are looking for combinations of positions for x2x3, while
+    // All previous combinations not starting with x1: SUM_{i=1}^{x1} Binomial(N-i, 2)
+    // because we are looking for combinations of positions for x2x3, while
     // the space is decreasing by 1 since x1 is moving also.
+    // 
+    // Example, assume N=128.
+    // if x1=1, then we want to compute all previous combinations, i.e., when x1=0 is fixed
+    // and x2,x3 are floating. x1 already takes the first bit, thus there are 127 
+    // remaining bits. There are Binomial(127, 2) combinations for x2x3, thus
+    // if x1=1 there were Binomial(127,2) combination before x1=1,x2=2,x3=3
+    // (first combination with x1=1 in the lexicographic ordering).
     //
     // result = SUM_{i=0}^{x1-1} Binomial(N-1-i, 2) + getQuadIdx(N-x1-1, x2, x3)
     
     ULONG res = 0;
-    for(uint i = 0; i<x1; i++){
-        res += binomial(N-1-i, 2);
+    for(uint i = 1; i<=x1; i++){
+        res += binomial(N-i, 2);
     }
     
     res += getQuadIdx(N-1-x1, x2, x3);
