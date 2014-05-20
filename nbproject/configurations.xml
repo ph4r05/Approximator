@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configurationDescriptor version="94">
   <logicalFolder name="root" displayName="root" projectFiles="true" kind="ROOT">
+    <logicalFolder name="faugere" displayName="faugere" projectFiles="true">
+      <logicalFolder name="darwin" displayName="darwin" projectFiles="true">
+      </logicalFolder>
+      <logicalFolder name="int" displayName="int" projectFiles="true">
+        <itemPath>faugere/int/gmp.h</itemPath>
+        <itemPath>faugere/int/protocol_maple.h</itemPath>
+      </logicalFolder>
+      <logicalFolder name="macosx" displayName="macosx" projectFiles="true">
+      </logicalFolder>
+      <logicalFolder name="protocol" displayName="protocol" projectFiles="true">
+        <itemPath>faugere/protocol/PROTOCOL_GB.h</itemPath>
+        <itemPath>faugere/protocol/callgb.h</itemPath>
+        <itemPath>faugere/protocol/callgb_dynamic_protocol.h</itemPath>
+        <itemPath>faugere/protocol/export_callgb.h</itemPath>
+        <itemPath>faugere/protocol/manager.h</itemPath>
+        <itemPath>faugere/protocol/nettools.h</itemPath>
+        <itemPath>faugere/protocol/signature.h</itemPath>
+        <itemPath>faugere/protocol/style.h</itemPath>
+      </logicalFolder>
+      <logicalFolder name="x64" displayName="x64" projectFiles="true">
+      </logicalFolder>
+      <itemPath>faugere/call_fgb.h</itemPath>
+    </logicalFolder>
     <logicalFolder name="HeaderFiles"
                    displayName="Header Files"
                    projectFiles="true">
@@ -38,6 +61,9 @@
     <itemPath>base.cpp</itemPath>
     <itemPath>base.h</itemPath>
   </logicalFolder>
+  <sourceRootList>
+    <Elem>faugere</Elem>
+  </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
     <conf name="Debug" type="1">
@@ -49,7 +75,12 @@
       <compileType>
         <ccTool>
           <standard>8</standard>
-          <commandLine>-lm -lcrypto</commandLine>
+          <incDir>
+            <pElem>faugere</pElem>
+            <pElem>faugere/int</pElem>
+            <pElem>faugere/protocol</pElem>
+          </incDir>
+          <commandLine>-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
           <warningLevel>2</warningLevel>
         </ccTool>
         <linkerTool>
@@ -80,6 +111,31 @@
       </item>
       <item path="base.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="faugere/call_fgb.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/int/gmp.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/int/protocol_maple.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/PROTOCOL_GB.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/callgb.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/callgb_dynamic_protocol.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="faugere/protocol/export_callgb.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/manager.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/nettools.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/signature.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/style.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
       </item>
     </conf>
@@ -97,7 +153,12 @@
           <developmentMode>5</developmentMode>
           <standard>8</standard>
           <commandlineTool>g++</commandlineTool>
-          <commandLine>-lm -lcrypto</commandLine>
+          <incDir>
+            <pElem>faugere</pElem>
+            <pElem>faugere/int</pElem>
+            <pElem>faugere/protocol</pElem>
+          </incDir>
+          <commandLine>-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
         </ccTool>
         <fortranCompilerTool>
           <developmentMode>5</developmentMode>
@@ -105,6 +166,9 @@
         <asmTool>
           <developmentMode>5</developmentMode>
         </asmTool>
+        <linkerTool>
+          <commandLine>-L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
+        </linkerTool>
       </compileType>
       <item path="AESCipher.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -129,6 +193,31 @@
       <item path="base.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="base.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/call_fgb.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/int/gmp.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/int/protocol_maple.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/PROTOCOL_GB.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/callgb.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/callgb_dynamic_protocol.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="faugere/protocol/export_callgb.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/manager.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/nettools.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/signature.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="faugere/protocol/style.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
       </item>

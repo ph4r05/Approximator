@@ -48,8 +48,8 @@ OBJECTFILES= \
 CFLAGS=
 
 # CC Compiler Flags
-CCFLAGS=-lm -lcrypto
-CXXFLAGS=-lm -lcrypto
+CCFLAGS=-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp
+CXXFLAGS=-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp
 
 # Fortran Compiler Flags
 FFLAGS=
@@ -71,37 +71,37 @@ ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation: ${OBJECTFILES
 ${OBJECTDIR}/AESCipher.o: AESCipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -g -Wall -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipher.o AESCipher.cpp
+	$(COMPILE.cc) -g -Wall -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipher.o AESCipher.cpp
 
 ${OBJECTDIR}/Approximation.o: Approximation.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -g -Wall -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Approximation.o Approximation.cpp
+	$(COMPILE.cc) -g -Wall -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Approximation.o Approximation.cpp
 
 ${OBJECTDIR}/CombinatiorialGenerator.o: CombinatiorialGenerator.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -g -Wall -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/CombinatiorialGenerator.o CombinatiorialGenerator.cpp
+	$(COMPILE.cc) -g -Wall -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/CombinatiorialGenerator.o CombinatiorialGenerator.cpp
 
 ${OBJECTDIR}/ICipher.o: ICipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -g -Wall -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
+	$(COMPILE.cc) -g -Wall -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
 
 ${OBJECTDIR}/ProgressMonitor.o: ProgressMonitor.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -g -Wall -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ProgressMonitor.o ProgressMonitor.cpp
+	$(COMPILE.cc) -g -Wall -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ProgressMonitor.o ProgressMonitor.cpp
 
 ${OBJECTDIR}/base.o: base.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -g -Wall -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/base.o base.cpp
+	$(COMPILE.cc) -g -Wall -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/base.o base.cpp
 
 ${OBJECTDIR}/main.o: main.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -g -Wall -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
+	$(COMPILE.cc) -g -Wall -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
 
 # Subprojects
 .build-subprojects:
