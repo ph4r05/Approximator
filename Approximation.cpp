@@ -3,6 +3,8 @@
  * Author: ph4r05
  * 
  * Created on May 16, 2014, 10:21 AM
+ * TODO: multithreaded!!!
+ * TODO: MPI???
  */
 
 #include "Approximation.h"
@@ -83,6 +85,7 @@ void Approximation::init() {
     
     ulongOut = new ULONG[outputWidthUlong];
     ulongInp = new ULONG[inputWidthUlong];
+    finput   = new uchar[byteWidth];
 }
 
 ULONG Approximation::getCubeIdx(ULONG x1, ULONG x2, ULONG x3) {
@@ -94,35 +97,43 @@ void Approximation::work() {
     // Boundary on the term order to store term coefficients.
     orderLimit=3;
     
-    // Allocate input & key buffers
-    uchar * output = new uchar[cip->getOutputBlockSize()];
-    finput         = new uchar[byteWidth];
-    uchar * key    = finput + cip->getInputBlockSize();
-    
     // Further pre-computation & initialization.
     init();
+    
+//    // Dump polynomials to the files, one file per polynomial.
+//    ofstream ** coefs = new ofstream*[8 * cip->getOutputBlockSize()];
+//    for(unsigned int i = 0; i < 8 * cip->getOutputBlockSize(); i++){
+//        coefs[i] = new ofstream(std::string("poly_") + std::to_string(i) + ".txt");
+//    }
+    
+    // Compute coefficients.
+    cout << "Computing polynomial coefficients, orderLimit=" << orderLimit << endl << " ";
+    computeCoefficients();            
+    
+    // Test approximation correctness
+    cout << "Testing approximation correctness: " << endl << " ";
+    selftestApproximation();
+    
+    // Here we test the accuracy of the high order approximation, random key,
+    // random message. 
+    cout << "Testing approximation quality: " << endl << " ";
+    testPolynomialApproximation();
+      
+    cout << "Generating finished" << endl;
+}
+
+void Approximation::computeCoefficients() {
+    // Allocate input & key buffers
+    uchar * output = new uchar[cip->getOutputBlockSize()];
+    uchar * key    = finput + cip->getInputBlockSize();
     
     // Generate ciphertext for calculating constant term (key=0, message=0).
     memset(finput, 0, byteWidth);
     cip->evaluate(finput, key, output);
     
-    // Dump
-    ofstream hist("cip_0.txt");
-    dumpUchar(hist, output, cip->getOutputBlockSize());
-    hist.close();
-    
-    // Dump polynomials to the files, one file per polynomial.
-    ofstream ** coefs = new ofstream*[8 * cip->getOutputBlockSize()];
-    for(unsigned int i = 0; i < 8 * cip->getOutputBlockSize(); i++){
-        coefs[i] = new ofstream(std::string("poly_") + std::to_string(i) + ".txt");
-    }
-    
     // Read output of encryption and obtain constant terms.
     for(unsigned int i = 0; i < cip->getOutputBlockSize(); i++){
         coefficients[0][i/SIZEOF_ULONG] = READ_TERM_1(coefficients[0][i/SIZEOF_ULONG], output[i], i%SIZEOF_ULONG);
-        
-        // File dumping is temporarily disabled due to representation switch.
-        //(*coefs[i]) << ((uint)coefficients[0][i][0]) << endl;
     }
     
     // Generate order1 .. order3 cipher data
@@ -139,8 +150,13 @@ void Approximation::work() {
                 << endl;
         cout << " ";
         
+        // Here is the point for parallelization.
+        // Each thread/computing node can compute x-th combination from the generator
+        // effectively partitioning combination space. 
+        // Synchronization barrier is needed after finishing particular order
+        // because in order to compute order N we need to have coefficients of
+        // terms of order N-1 and less.
         ProgressMonitor pm(0.01);
-        ofstream cip1(std::string("ciphertexts_order_") + std::to_string(order) + ".txt");
         for(; cg.next(); ){
             const uchar * input = cg.getCurCombination();
             
@@ -153,9 +169,6 @@ void Approximation::work() {
             for(uint x=0; x<cip->getOutputBlockSize(); x++){
                 ulongOut[x/SIZEOF_ULONG] = READ_TERM_1(ulongOut[x/SIZEOF_ULONG], output[x], x%SIZEOF_ULONG);
             }
-            
-            // Dump
-            //dumpUchar(cip1, output, cip->getOutputBlockSize());
             
             // Generate coefficients of this order, perform it simultaneously
             // on one ULONG type.
@@ -215,16 +228,6 @@ void Approximation::work() {
                 if (order>=orderLimit+1){
                     break;
                 }
-                
-                // Dump terms to the file, only if term is present.
-                // File dumping is temporarily disabled due to representation switch.
-                /*if (dumpCoefsToFile && order<=orderLimit+1 && curValue){
-                    for(uint ti=0; ti<order; ti++){
-                        (*coefs[i]) << "x_" << setw(4) << setfill('0') << right << (uint)(*(cg.getCurState()+ti));
-                    }
-                    
-                    (*coefs[i]) << " + ";
-                }*/
             }
             
             // Progress monitoring.
@@ -234,26 +237,11 @@ void Approximation::work() {
         pm.setCur(1.0);
         
         cout << endl;
-        cip1.close();
-        
-        // Make a newline at the end of the current order.
-        for(unsigned int i = 0; i < 8 * cip->getOutputBlockSize(); i++){
-            (*coefs[i]) << endl;
-        }
     }
     
-    // Test approximation correctness
-    cout << "Testing approximation correctness: " << endl << " ";
-    selftestApproximation();
-    
-    // Here we test the accuracy of the high order approximation, random key,
-    // random message. 
-    cout << "Testing approximation quality: " << endl << " ";
-    testPolynomialApproximation();
-    
-    delete[] output;    
-    cout << "Generating finished" << endl;
+    delete[] output;  
 }
+
 
 int Approximation::selftestApproximation() {
 // Allocate input & key buffers

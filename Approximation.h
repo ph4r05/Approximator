@@ -79,6 +79,12 @@ public:
     void work();
     
     /**
+     * Computes coefficients for polynomial approximation.
+     * Init has to be called before this function.
+     */
+    void computeCoefficients();
+    
+    /**
      * Initialization of the internal pre-computed tables.
      */
     void init();
@@ -115,9 +121,12 @@ public:
      */
     int selftestApproximation();
     
-    ICipher * getCipher(){ return cip; }
+    ICipher * getCipher() const { return cip; }
     void      setCipher(ICipher * cip);
     
+    uint getOrderLimit() const { return orderLimit; }
+    void setOrderLimit(uint orderLimit) { this->orderLimit = orderLimit; }
+
     void genMessages();
 };
 
