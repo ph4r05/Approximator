@@ -207,6 +207,6 @@ ULONG CombinatiorialGenerator::getCubeIdx(ULONG N, ULONG x1, ULONG x2, ULONG x3)
         res += binomial(N-i, 2);
     }
     
-    res += getQuadIdx(N-1-x1, x2, x3);
+    res += getQuadIdx(N-1-x1, x2-x1-1, x3-x1-1);
     return res;
 }

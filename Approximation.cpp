@@ -25,9 +25,12 @@
 
 using namespace std;
 
-Approximation::Approximation() : cip(NULL), finput(NULL), 
+Approximation::Approximation(uint orderLimit) : cip(NULL), finput(NULL), 
         ulongInp(NULL), ulongOut(NULL), dumpCoefsToFile(false), 
-        outputWidthUlong(0), inputWidthUlong(0), cubeBinomialSums(NULL) {
+        outputWidthUlong(0), inputWidthUlong(0), binomialSums(NULL),
+        threadCount(1) {
+    
+    this->orderLimit = orderLimit;
 }
 
 Approximation::~Approximation() {
@@ -36,9 +39,14 @@ Approximation::~Approximation() {
         finput=NULL;
     }
     
-    if (cubeBinomialSums!=NULL){
-        delete[] cubeBinomialSums;
-        cubeBinomialSums=NULL;
+    if (binomialSums!=NULL){
+        for(uint order = 3; order <= orderLimit; order++){
+            delete[] binomialSums[order-3];
+            binomialSums[order-3]=NULL;
+        }
+        
+        delete[] binomialSums;
+        binomialSums = NULL;
     }
     
     if (ulongOut!=NULL){
@@ -61,27 +69,25 @@ void Approximation::setCipher(ICipher* cip) {
 
 void Approximation::init() {
     assert(cip!=NULL);
+    assert(ulongOut==NULL && ulongInp==NULL); // no repeated allocation.
     assert(outputWidthUlong>0 && inputWidthUlong>0);
+    assert(orderLimit>=0 && orderLimit<MAX_ORDER);
     
     // Pre-compute cube binomial coefficients
-    cubeBinomialSums = new ULONG[8*byteWidth];
-    cubeBinomialSums[0] = 0ul;
-    
-    // Allocating & computing binomial sums for cubic term coefficients.
-    ULONG res = 0;
-    for(uint i = 1; i<8*byteWidth; i++){
-        res += CombinatiorialGenerator::binomial(8*byteWidth-i, 2);
-        cubeBinomialSums[i] = res;
-    }
-    
-    // Allocating space for the coefficients.
-    for(unsigned int order = 0; order<=orderLimit; order++){
-        // Compute the size of coefficient array.
-        // Binomial(8*byteWidth, order) * outputWidthUlong.
-        //
-        ULONG vecSize = CombinatiorialGenerator::binomial(8*byteWidth, order) * outputWidthUlong;
-        cout << "  Allocating coefficient storage for order " << order << "; Bytes=" << vecSize * sizeof(ULONG) << endl;
-        coefficients[order].assign(vecSize, (ULONG) 0);
+    // Allocating & computing binomial sums for term coefficients.
+    if (orderLimit >= 3){
+        binomialSums = new ULONG * [orderLimit-2];
+        for(uint order = 3; order <= orderLimit; order++){
+            const uint idx = order-3;
+            binomialSums[idx]    = new ULONG[8*byteWidth];
+            binomialSums[idx][0] = 0ul;
+
+            ULONG res = 0;
+            for(uint i = 1; i<8*byteWidth; i++){
+                res += CombinatiorialGenerator::binomial(8*byteWidth-i, order-1);
+                binomialSums[idx][i] = res;
+            }
+        }
     }
     
     ulongOut = new ULONG[outputWidthUlong];
@@ -89,9 +95,42 @@ void Approximation::init() {
     finput   = new uchar[byteWidth];
 }
 
-ULONG Approximation::getCubeIdx(ULONG x1, ULONG x2, ULONG x3) {
-    const unsigned byteWidth = cip->getInputBlockSize() + cip->getKeyBlockSize();
-    return cubeBinomialSums[x1] + CombinatiorialGenerator::getQuadIdx(byteWidth-1-x1, x2, x3);
+ULONG Approximation::getCubeIdx(ULONG x1, ULONG x2, ULONG x3) const {
+    return orderLimit < 3 ? 0 : binomialSums[0][x1] + CombinatiorialGenerator::getQuadIdx(8*byteWidth-1-x1, x2-x1-1, x3-x1-1);
+}
+
+ULONG Approximation::getCombinationIdx(uint order, const ULONG* xs, uint xsOffset, ULONG Noffset, ULONG combOffset) const {
+    assert(order<=orderLimit);
+    
+    // Small order.
+    if (order==0) return 0;
+    if (order==1) return xs[0+xsOffset] - combOffset;
+    if (order==2) return CombinatiorialGenerator::getQuadIdx(8*byteWidth-Noffset, xs[0+xsOffset]-combOffset, xs[1+xsOffset]-combOffset);
+    
+    // Order 3.
+    // Take recursive parameters into consideration.
+    const ULONG x1 = xs[0+xsOffset] - combOffset;
+    
+    // This is simple optimalization to remove 1 recursion step.
+    if (order==3) {
+        const ULONG sum = binomialSums[0][x1+Noffset] - binomialSums[0][Noffset];
+        return sum + CombinatiorialGenerator::getQuadIdx(
+                8*byteWidth-1-x1-Noffset, 
+                xs[1+xsOffset]-combOffset-x1-1, 
+                xs[2+xsOffset]-combOffset-x1-1);
+    }
+    
+    // Order 3 and higher.
+    // Sum of the previous combinations is shifted due to Noffset.
+    // N is reduced thus the binomial sum is shifted (originating point is smaller).
+    return (binomialSums[order-3][x1+Noffset] - binomialSums[order-3][Noffset]) + 
+            getCombinationIdx(
+            order-1, 
+            xs, 
+            xsOffset+1, 
+            Noffset+1+x1, 
+            combOffset+1+x1
+           );
 }
 
 void Approximation::work() {    
@@ -110,6 +149,16 @@ void Approximation::work() {
 }
 
 void Approximation::computeCoefficients() {
+    // Allocating space for the coefficients.
+    for(unsigned int order = 0; order<=orderLimit; order++){
+        // Compute the size of coefficient array.
+        // Binomial(8*byteWidth, order) * outputWidthUlong.
+        //
+        ULONG vecSize = CombinatiorialGenerator::binomial(8*byteWidth, order) * outputWidthUlong;
+        cout << "  Allocating coefficient storage for order " << order << "; Bytes=" << vecSize * sizeof(ULONG) << endl;
+        coefficients[order].assign(vecSize, (ULONG) 0);
+    }
+    
     // Allocate input & key buffers
     uchar * output = new uchar[cip->getOutputBlockSize()];
     uchar * key    = finput + cip->getInputBlockSize();
@@ -228,7 +277,6 @@ void Approximation::computeCoefficients() {
     
     delete[] output;  
 }
-
 
 int Approximation::selftestApproximation(unsigned long numSamples) {
 // Allocate input & key buffers
@@ -461,3 +509,122 @@ void Approximation::genMessages() {
     delete[] output;
 }
 
+ULONG Approximation::numberOfTerms(ULONG variables, ULONG maxOrder) {
+    ULONG res = 0;
+    for(ULONG ord=0; ord<=maxOrder; ord++){
+        res += CombinatiorialGenerator::binomial(variables, ord);
+    }
+    
+    return res;
+}
+
+int Approximation::selftestIndexing() {
+    const uint bitWidth = 8*this->byteWidth;
+    
+    // Test quadratic indexing equations.
+    cout << "Testing quadratic indexing." << endl;
+    CombinatiorialGenerator cg2(bitWidth, 2);
+    for(; cg2.next(); ){
+        const ULONG ctr = cg2.getCounter();
+        const ULONG * state = cg2.getCurState();
+        const ULONG ctrComputed = CombinatiorialGenerator::getQuadIdx(bitWidth, state[0], state[1]);
+        if (ctrComputed != ctr){
+            dumpUlongHex(cerr, state, 2);
+            cerr << "Invalid index for order 2 ctr="<<ctr<<"; computed: " << ctrComputed << endl;
+        }
+    }
+    
+    // Test cubic indexing equations.
+    cout << "Testing cubic indexing." << endl << " ";
+    CombinatiorialGenerator cg3(bitWidth, 3);
+    ProgressMonitor pm3(0.01);
+    for(; cg3.next(); ){
+        const ULONG ctr = cg3.getCounter();
+        const ULONG * state = cg3.getCurState();
+        const ULONG ctrComputed1 = CombinatiorialGenerator::getCubeIdx(bitWidth,  state[0], state[1], state[2]);
+        if (ctrComputed1 != ctr){
+            dumpUlongHex(cerr, state, 3);
+            cerr << "Invalid index for order 3 ctr="<<ctr<<"; computed1: " << ctrComputed1 << endl;
+        }
+        
+        // Progress monitoring.
+        double cProg = (double)ctr / (double)cg3.getTotalNum();
+        pm3.setCur(cProg);
+    }
+    pm3.setCur(1.0);
+    cout << endl;
+    
+    // Test general indexing.
+    cout << "Testing general indexing." << endl;
+    for(uint order=0; order<=orderLimit; order++){
+        cout << " Testing order " << order << endl << " ";
+
+        CombinatiorialGenerator cg(bitWidth, order);
+        
+        ProgressMonitor pm(0.01);
+        const ULONG total = cg.getTotalNum();
+        for(; cg.next(); ){
+            const ULONG ctr     = cg.getCounter();
+            if (ctr<0x7d80) continue;
+            
+            const ULONG * state = cg.getCurState();
+            const ULONG ctrComputed = getCombinationIdx(order, state);
+            if (ctrComputed != ctr){
+                dumpUlongHex(cerr, state, order);
+                cerr << "Invalid index for order " << order << " ctr=" << ctr << "; computed1: " << ctrComputed << endl;
+            }
+            
+            // Progress monitoring.
+            double cProg = (double)ctr / (double)total;
+            pm.setCur(cProg);
+        }
+        pm.setCur(1.0);
+        cout << endl;
+    }
+    
+    cout << "Test completed" << endl;
+    return 0;
+}
+
+
+void Approximation::solveKeyGrobner(uint samples) {
+    // Allocate input & key buffers
+    uchar * outputCip = new uchar[cip->getOutputBlockSize()];
+    uchar * outputPol = new uchar[cip->getOutputBlockSize()];
+    uchar * input  = new uchar[byteWidth];
+    uchar * key    = new uchar[cip->getKeyBlockSize()];
+    
+    // Seed (primitive).
+    srand((unsigned)time(0)); 
+    
+    // Generate key at random, once for the cipher.
+    // From now it will behave as a black-box and we assume key is unknown to us.
+    for(unsigned int i=0; i<cip->getKeyBlockSize(); i++){ 
+        key[i] = (rand() % (0xffu+1)); 
+    }
+    
+    cout << "Generated secret key: " << endl;
+    dumpUcharHex(cout, key, cip->getKeyBlockSize());
+    
+    // Generate tons of random messages.
+    for(unsigned long i=0; i<samples; i++){
+        // Generate message at random.
+        for(unsigned int i=0; i<cip->getInputBlockSize(); i++){ 
+            finput[i] = (rand() % (0xffu+1)); 
+        }
+        
+        // Evaluate cipher.
+        cip->evaluate(input, key, outputCip);
+        
+        // Fix plaintext variables to the generated ones. 
+        // Now we obtain system of equations with key variables.
+        // 128 equations with 128 unknown bits.
+        
+        
+    }
+    
+    delete[] key;
+    delete[] input;
+    delete[] outputCip;
+    delete[] outputPol;
+}

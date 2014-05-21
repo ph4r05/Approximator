@@ -66,11 +66,15 @@ private:
     // Size of the input block (message+key) of the cipher in ulong types.
     ULONG inputWidthUlong;
     
-    // Binomial sums for computing coefficient indexes for x1x2x3.
-    ULONG * cubeBinomialSums;
+    // Array of binomial sums for computing combination index in the lexicographic ordering.
+    // The first array element corresponds to the order 3, next to the order 4 and so on...
+    ULONG ** binomialSums;
+    
+    // Number of threads to use for parallelized computation.
+    uint threadCount;
     
 public:
-    Approximation();
+    Approximation(uint orderLimit);
     virtual ~Approximation();
     
     /**
@@ -81,6 +85,7 @@ public:
     /**
      * Computes coefficients for polynomial approximation.
      * Init has to be called before this function.
+     * Memory for coefficient is allocated in this step.
      */
     void computeCoefficients();
     
@@ -94,7 +99,20 @@ public:
      * Uses precomputed values to optimize computation - cubeBinomialSums. 
      * @param ULONG
      */
-    ULONG getCubeIdx(ULONG x1, ULONG x2, ULONG x3);
+    ULONG getCubeIdx(ULONG x1, ULONG x2, ULONG x3) const;
+    
+    /**
+     * General function for computing an combination index in an lexicographic ordering.
+     * Works only up to defined degree.
+     * 
+     * @param order       number of elements in the combination.
+     * @param xs          ULONG representation of the combination (output of the comb. generator).
+     * @param xsOffset    offset for the combination in xs to take into account (for recursive computation).
+     * @param Noffset     minus offset to the N (for recursion).
+     * @param combOffset  minus offset for combination elements (recursion).
+     * @return 
+     */
+    ULONG getCombinationIdx(uint order, const ULONG * xs, uint xsOffset=0, ULONG Noffset=0, ULONG combOffset=0) const;
     
     /**
      * Evaluates function determined by coefficients 
@@ -122,11 +140,31 @@ public:
      */
     int selftestApproximation(unsigned long numSamples);
     
+    /**
+     * Simple test for combination indexing correctness.
+     */
+    int selftestIndexing();
+    
+    /**
+     * Computes maximal number of terms the polynomial with given number
+     * of variables and with the defined maximal order can have.
+     * @return 
+     */
+    ULONG numberOfTerms(ULONG variables, ULONG maxOrder);
+    
+    /**
+     Procedure for solving equation for keys with using GB.
+     */
+    void solveKeyGrobner(uint samples);
+    
     ICipher * getCipher() const { return cip; }
     void      setCipher(ICipher * cip);
     
     uint getOrderLimit() const { return orderLimit; }
-    void setOrderLimit(uint orderLimit) { this->orderLimit = orderLimit; }
+    
+    uint getThreadCount() const { return threadCount; }
+    void setThreadCount(uint threadCount) { this->threadCount = threadCount; }
+
 
     void genMessages();
 };

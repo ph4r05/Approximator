@@ -25,9 +25,6 @@ using namespace boost;
  * Main entry point
  */
 int main(int argc, char** argv) {
-    AESCipher c;
-    Approximation ap;
-    
     po::options_description description("High order approximation");
     description.add_options()
             ("version,v",                                                               "Display the version number")
@@ -35,7 +32,8 @@ int main(int argc, char** argv) {
             ("corr,c",         po::value<ulong>()->default_value(0)->implicit_value(0), "Testing approximation correctness")
             ("acc",            po::value<ulong>()->default_value(0)->implicit_value(0), "Testing approximation accuracy samples")
             ("order,o",        po::value<uint>()->default_value(3)->implicit_value(3),  "Order limit for approximation")
-//            ("extEnc,e",       po::value<bool>()->default_value(false)->implicit_value(false), "Use external encoding?")
+            ("key,k",          po::value<bool>()->default_value(false)->implicit_value(false), "Try to solve key equations with GB")
+            ("itest",          po::value<bool>()->default_value(false)->implicit_value(false), "Internal implementation correctness tests")
 //            ("out-file,o",     po::value<std::string>(),                                       "Output file to write encrypted data")
 //            ("input-files",    po::value<std::vector<std::string>>(),                          "Input files")
 //            ("create-table",   po::value<std::string>(),                                       "Create encryption/decryption tables");
@@ -66,9 +64,18 @@ int main(int argc, char** argv) {
     }
     
     // Prepare approximation object.
+    AESCipher c;
+    Approximation ap(orderLimit);
     ap.setCipher(&c);
-    ap.setOrderLimit(orderLimit);
     ap.init();
+    
+    // Internal implementation test.
+    bool itest = vm["itest"].as<bool>();
+    if (itest){
+        cout << "Testing internal implementation" << endl;
+        ap.selftestIndexing();
+        return 0;
+    }
     
     // Compute coefficients.
     ap.computeCoefficients();
@@ -89,8 +96,12 @@ int main(int argc, char** argv) {
         ap.testPolynomialApproximation(accSamples);
     }
     
-    // Grober basis stuff.
-    
+    // GB stuff.
+    bool keyEq = vm["key"].as<bool>();
+    if (keyEq){
+        cout << "Solving key equations with GB" << endl;
+        ap.solveKeyGrobner(1);
+    }
     
     return 0;
 }
