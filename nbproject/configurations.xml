@@ -80,7 +80,7 @@
             <pElem>faugere/int</pElem>
             <pElem>faugere/protocol</pElem>
           </incDir>
-          <commandLine>-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
+          <commandLine>-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lboost_program_options</commandLine>
           <warningLevel>2</warningLevel>
         </ccTool>
         <linkerTool>
@@ -158,7 +158,7 @@
             <pElem>faugere/int</pElem>
             <pElem>faugere/protocol</pElem>
           </incDir>
-          <commandLine>-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
+          <commandLine>-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lboost_program_options</commandLine>
         </ccTool>
         <fortranCompilerTool>
           <developmentMode>5</developmentMode>

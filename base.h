@@ -11,6 +11,7 @@
 
 typedef unsigned char uchar;
 typedef unsigned int  uint;
+typedef unsigned long ulong;
 
 // Determine whether we are building for a 64-bit platform.
 // _LP64: http://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html

@@ -80,6 +80,7 @@ void Approximation::init() {
         // Binomial(8*byteWidth, order) * outputWidthUlong.
         //
         ULONG vecSize = CombinatiorialGenerator::binomial(8*byteWidth, order) * outputWidthUlong;
+        cout << "  Allocating coefficient storage for order " << order << "; Bytes=" << vecSize * sizeof(ULONG) << endl;
         coefficients[order].assign(vecSize, (ULONG) 0);
     }
     
@@ -94,9 +95,6 @@ ULONG Approximation::getCubeIdx(ULONG x1, ULONG x2, ULONG x3) {
 }
 
 void Approximation::work() {    
-    // Boundary on the term order to store term coefficients.
-    orderLimit=3;
-    
     // Further pre-computation & initialization.
     init();
     
@@ -108,18 +106,7 @@ void Approximation::work() {
     
     // Compute coefficients.
     cout << "Computing polynomial coefficients, orderLimit=" << orderLimit << endl << " ";
-    computeCoefficients();            
-    
-    // Test approximation correctness
-    cout << "Testing approximation correctness: " << endl << " ";
-    selftestApproximation();
-    
-    // Here we test the accuracy of the high order approximation, random key,
-    // random message. 
-    cout << "Testing approximation quality: " << endl << " ";
-    testPolynomialApproximation();
-      
-    cout << "Generating finished" << endl;
+    computeCoefficients(); 
 }
 
 void Approximation::computeCoefficients() {
@@ -243,13 +230,13 @@ void Approximation::computeCoefficients() {
 }
 
 
-int Approximation::selftestApproximation() {
+int Approximation::selftestApproximation(unsigned long numSamples) {
 // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * outputPol = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
     ULONG * hits   = new ULONG[8*cip->getOutputBlockSize()];
-    const ULONG genLimit = 100ul;
+    const ULONG genLimit = numSamples;
     
     // Seed (primitive).
     srand((unsigned)time(0)); 
@@ -273,7 +260,7 @@ int Approximation::selftestApproximation() {
         cip->evaluate(input, input + cip->getInputBlockSize(), outputCip);
         
         // Evaluate polynomial.
-        this->evaluateCoefficients(input, outputPol);
+        this->evaluateCoefficients(input, outputPol, ulongInp, ulongOut);
         
         // Compute statistics - number of hits for individual polynomial.
         for(uint p=0; p<8*cip->getOutputBlockSize(); p++){
@@ -314,13 +301,12 @@ int Approximation::selftestApproximation() {
     return success;
 }
 
-int Approximation::testPolynomialApproximation() {
+int Approximation::testPolynomialApproximation(unsigned long numSamples) {
     // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * outputPol = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
     ULONG * hits   = new ULONG[8*cip->getOutputBlockSize()];
-    const ULONG genLimit = 10000ul;
     
     // Seed (primitive).
     srand((unsigned)time(0)); 
@@ -329,7 +315,7 @@ int Approximation::testPolynomialApproximation() {
     // Generate 2^20 random messages and keys, evaluate it
     // both on cipher and polynomials.
     ProgressMonitor pm(0.01);
-    for(unsigned long i=0; i<genLimit; i++){
+    for(unsigned long i=0; i<numSamples; i++){
         // Generate cipher input at random.
         for(unsigned int k=0; k<byteWidth; k++){ 
             input[k] = (rand() % (0xffu+1)); 
@@ -339,7 +325,7 @@ int Approximation::testPolynomialApproximation() {
         cip->evaluate(input, input + cip->getInputBlockSize(), outputCip);
         
         // Evaluate polynomial.
-        this->evaluateCoefficients(input, outputPol);
+        this->evaluateCoefficients(input, outputPol, ulongInp, ulongOut);
         
         //cout << "final: " << endl;
         //dumpUcharHex(cout, outputCip, 16);
@@ -351,7 +337,7 @@ int Approximation::testPolynomialApproximation() {
         }
         
         // Progress monitoring.
-        double cProg = (double)i / (double)genLimit;
+        double cProg = (double)i / (double)numSamples;
         pm.setCur(cProg);
     }
     pm.setCur(1.0);
@@ -359,7 +345,7 @@ int Approximation::testPolynomialApproximation() {
     cout << endl << "Approximation quality test finished." << endl;
     for(uint p=0; p<8*cip->getOutputBlockSize(); p++){
         cout << dec << "  f_" << setw(4) << setfill('0') << right << p << " = ";
-        cout << ((double)hits[p] / (double)genLimit) << endl;
+        cout << ((double)hits[p] / (double)numSamples) << endl;
     }
     
     // Free the memory.
@@ -371,25 +357,25 @@ int Approximation::testPolynomialApproximation() {
     return 1;
 }
 
-int Approximation::evaluateCoefficients(const unsigned char* input, unsigned char* output) {
+int Approximation::evaluateCoefficients(const unsigned char* input, unsigned char* output, ULONG * iBuff, ULONG * oBuff) const {
     // We can assume that approximate half of the coefficients are enabled/present
     // in the resulting polynomial, thus evaluation is based on the iteration of 
     // the combinatorial generator and reading coefficient by coefficient.
     const uint bitWidth = 8*byteWidth;
     
     // Reset output buffer, only ones will be set here, has to be set to zero.
-    memset(ulongInp, 0, sizeof(ULONG) * inputWidthUlong);
+    memset(iBuff, 0, sizeof(ULONG) * inputWidthUlong);
     
     // Copy input to ULONG for better manipulation.
     for(uint x=0; x<byteWidth; x++){
-        ulongInp[x/SIZEOF_ULONG] = READ_TERM_1(ulongInp[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
+        iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
     }
     
     // Evaluation on ULONGs.
     for(uint ulongCtr=0; ulongCtr<outputWidthUlong; ulongCtr++){
         // Evaluate SIZEOF_ULONG polynomials simultaneously.
         // 1. Use constant term for initialization.
-        ulongOut[ulongCtr] = coefficients[0][ulongCtr];
+        oBuff[ulongCtr] = coefficients[0][ulongCtr];
     }
     
     // 2. linear, quadratic and cubic terms, quartic and higher if applicable.
@@ -416,7 +402,7 @@ int Approximation::evaluateCoefficients(const unsigned char* input, unsigned cha
             //
             bool termEval=true;
             for(uint uctr2=0; uctr2<inputWidthUlong; uctr2++){
-                termEval &= (comb[uctr2]==0) ? 1 : (comb[uctr2] & ulongInp[uctr2]) == comb[uctr2];
+                termEval &= (comb[uctr2]==0) ? 1 : (comb[uctr2] & iBuff[uctr2]) == comb[uctr2];
             }
             
             // If term is null, nothing to do here, go evaluate next one.
@@ -426,14 +412,14 @@ int Approximation::evaluateCoefficients(const unsigned char* input, unsigned cha
             
             // Term is evaluated to 1, thus XOR it to the result - where it is present.
             for(uint uctr2=0; uctr2<outputWidthUlong; uctr2++){
-                ulongOut[uctr2] ^= coefficients[order][outputWidthUlong*ctr + uctr2];
+                oBuff[uctr2] ^= coefficients[order][outputWidthUlong*ctr + uctr2];
             }
         }
     }
     
     // Transform ULONG to output.
     for(uint x=0; x<cip->getOutputBlockSize(); x++){
-        output[x] = (ulongOut[x/SIZEOF_ULONG] >> (8* (x % SIZEOF_ULONG))) & ((unsigned char)0xffu);
+        output[x] = (oBuff[x/SIZEOF_ULONG] >> (8* (x % SIZEOF_ULONG))) & ((unsigned char)0xffu);
     }
     
     return 0;

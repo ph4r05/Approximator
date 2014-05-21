@@ -99,18 +99,19 @@ public:
     /**
      * Evaluates function determined by coefficients 
      * @param input
-     * @param key
      * @param output
+     * @param iBuff  input  ULONG buffer to use (has to be allocated to exact size)
+     * @param oBuff  output ULONG buffer to use (has to be allocated to exact size)
      * @return 
      */
-    int evaluateCoefficients(const unsigned char * input, unsigned char * output);
+    int evaluateCoefficients(const unsigned char * input, unsigned char * output, ULONG * iBuff, ULONG * oBuff) const;
     
     /**
      * Tests polynomial approximation of the cipher.
      * Pre-computed coefficients are used.
      * @return 
      */
-    int testPolynomialApproximation();
+    int testPolynomialApproximation(unsigned long numSamples);
     
     /**
      * Performs self test on determined coefficient values.
@@ -119,7 +120,7 @@ public:
      * 
      * @return 
      */
-    int selftestApproximation();
+    int selftestApproximation(unsigned long numSamples);
     
     ICipher * getCipher() const { return cip; }
     void      setCipher(ICipher * cip);
