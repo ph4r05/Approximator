@@ -84,7 +84,10 @@
           <warningLevel>2</warningLevel>
         </ccTool>
         <linkerTool>
-          <commandLine>-lm -lcrypto</commandLine>
+          <linkerAddLib>
+            <pElem>faugere/x64</pElem>
+          </linkerAddLib>
+          <commandLine>-lcrypto -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
         </linkerTool>
       </compileType>
       <item path="AESCipher.cpp" ex="false" tool="1" flavor2="0">
@@ -167,7 +170,10 @@
           <developmentMode>5</developmentMode>
         </asmTool>
         <linkerTool>
-          <commandLine>-L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
+          <linkerAddLib>
+            <pElem>faugere/x64</pElem>
+          </linkerAddLib>
+          <commandLine>-lcrypto -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
         </linkerTool>
       </compileType>
       <item path="AESCipher.cpp" ex="false" tool="1" flavor2="0">

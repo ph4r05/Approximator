@@ -28,7 +28,7 @@ using namespace std;
 Approximation::Approximation(uint orderLimit) : cip(NULL), finput(NULL), 
         ulongInp(NULL), ulongOut(NULL), dumpCoefsToFile(false), 
         outputWidthUlong(0), inputWidthUlong(0), binomialSums(NULL),
-        threadCount(1) {
+        threadCount(1), varNames(NULL) {
     
     this->orderLimit = orderLimit;
 }
@@ -57,6 +57,16 @@ Approximation::~Approximation() {
     if (ulongInp!=NULL){
         delete[] ulongInp;
         ulongInp = NULL;
+    }
+    
+    if (varNames!=NULL){
+        for(uint var = 0; var <= 8*byteWidth; var++){
+            delete[] varNames[var];
+            varNames[var]=NULL;
+        }
+        
+        delete[] varNames;
+        varNames = NULL;
     }
 }
 
@@ -88,6 +98,13 @@ void Approximation::init() {
                 binomialSums[idx][i] = res;
             }
         }
+    }
+    
+    // Variable names for FGb.
+    varNames = new char * [8*byteWidth];
+    for(uint var=0; var<8*byteWidth; var++){
+        varNames[var] = new char[10];
+        snprintf(varNames[var], 10, "x%d", var);
     }
     
     ulongOut = new ULONG[outputWidthUlong];
@@ -589,9 +606,9 @@ int Approximation::selftestIndexing() {
 void Approximation::solveKeyGrobner(uint samples) {
     // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
-    uchar * outputPol = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
     uchar * key    = new uchar[cip->getKeyBlockSize()];
+    const uint numPolynomials = 8*cip->getOutputBlockSize();
     
     // Seed (primitive).
     srand((unsigned)time(0)); 
@@ -605,68 +622,80 @@ void Approximation::solveKeyGrobner(uint samples) {
     cout << "Generated secret key: " << endl;
     dumpUcharHex(cout, key, cip->getKeyBlockSize());
     
+    const uint numVariables = 128;
+    
+    // Bit-mask of variables for which we have a valid value.
+    ULONG * variablesValueMask = new ULONG[this->inputWidthUlong];
+    variablesValueMask[0] = FULL_ULONG;
+    variablesValueMask[1] = FULL_ULONG;
+    
+    // Input ULONG buffer
+    ULONG * iBuff = new ULONG[this->inputWidthUlong];
+    
+    // FGb polynomials. We have here specific number of polynomials.
+    Dpol_INT * inputBasis = new Dpol_INT[numPolynomials];
+    
     // Generate tons of random messages.
-    for(unsigned long i=0; i<samples; i++){
+    for(unsigned long sample=0; sample<samples; sample++){
         // Generate message at random.
-        for(unsigned int i=0; i<cip->getInputBlockSize(); i++){ 
-            finput[i] = (rand() % (0xffu+1)); 
-        }
-        
-        // Evaluate cipher.
-        cip->evaluate(input, key, outputCip);
-        
         // Fix plaintext variables to the generated ones. 
         // Now we obtain system of equations with key variables.
         // 128 equations with 128 unknown bits.
+        for(unsigned int i=0; i<cip->getInputBlockSize(); i++){ 
+            input[i] = (rand() % (0xffu+1)); 
+        }
         
-        //
-        // Here we want generalized partial evaluation of the function. 
-        // Generalized evaluation takes parameters: 
-        //
+        // Evaluate cipher.
+        cip->evaluate(input, key, outputCip);       
         
-        // Number of variables in the partially evaluated function.//
-        const uint newVariables = 128; 
-        
-        // Bitmask of variables for which we have valid value.
-        ULONG * variablesValueMask = new ULONG[this->inputWidthUlong];
-        variablesValueMask[0] = FULL_ULONG;
-        variablesValueMask[1] = FULL_ULONG;
-        
-        // Input variables, only masked are taken into consideration.
-        // Generate random plaintext.
-        ULONG * iBuff = new ULONG[this->inputWidthUlong];
+        // Input variables, only masked are taken into consideration during computation.
         memset(iBuff, 0, SIZEOF_ULONG * this->inputWidthUlong);
         for(uint x = 0; x < cip->getInputBlockSize(); x++){
-            uint rnd = rand() % 0x100;
-            iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], rnd, x%SIZEOF_ULONG);
+            iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
         }
         
         // New function is stored in another coefficient array.
         // Allocate space for the coefficients.
         std::vector<ULONG> coeffEval[MAX_ORDER];
         for(unsigned int order = 0; order<=orderLimit; order++){
-            ULONG vecSize = CombinatiorialGenerator::binomial(8*newVariables, order) * outputWidthUlong;
+            ULONG vecSize = CombinatiorialGenerator::binomial(numVariables, order) * outputWidthUlong;
             coeffEval[order].assign(vecSize, (ULONG) 0);
         }
         
         // Partial evaluation = reduces terms with evaluated variables.
-        partialEvaluation(newVariables, variablesValueMask, iBuff, coeffEval);
+        partialEvaluation(numVariables, variablesValueMask, iBuff, coeffEval);
         
-        // TODO: add ciphertext value to the constant term.
-        // TODO: build basis for the GB computation from coefficients.
+        // Add ciphertext values to the polynomials to obtain system of equations.
+        for(uint x=0; x<cip->getOutputBlockSize(); x++){
+            coeffEval[0][x/SIZEOF_ULONG] ^= ((ULONG)outputCip[x])<<(8 * (x % SIZEOF_ULONG));
+        }
+        
+        // Building GB basis from the coefficients.
+        memset(inputBasis, 0, sizeof(Dpol_INT) * numPolynomials);
+        // Proceed polynomial per polynomial.
+        for(uint poly=0; poly<numPolynomials; poly++){
+            // For each polynomial exact number of terms has to be known in advance.
+            inputBasis[numPolynomials + poly] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly);
+        }
+        
         // TODO: get GB solution, test key success.
-        
         
         
     }
     
+    
+    
+    
+    
     delete[] key;
     delete[] input;
     delete[] outputCip;
-    delete[] outputPol;
+    delete[] variablesValueMask;
+    delete[] iBuff;
+    delete[] inputBasis;
 }
 
-int Approximation::partialEvaluation(uint newVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) {
+int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) {
     // Order 0 and higher.
     ULONG * newTerm = new ULONG[orderLimit];
     for(uint order = 0; order <= orderLimit; order++){
@@ -736,7 +765,8 @@ int Approximation::partialEvaluation(uint newVariables, ULONG * variablesValueMa
             }
             
             // Compute index of this term and toggle it in the low function.
-            ULONG newTermIdx = getCombinationIdx(torder, newTerm);
+            // Number of variables is reduced, thus set the offset on the number combinations.
+            ULONG newTermIdx = getCombinationIdx(torder, newTerm, 8*byteWidth-numVariables);
             
             // After partial evaluation term has coefficient 1 and can be present
             // in polynomials under this input.
@@ -752,4 +782,49 @@ int Approximation::partialEvaluation(uint newVariables, ULONG * variablesValueMa
     return 0;
 }
 
-
+Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs, uint maxOrder, uint polyIdx) {
+    ULONG termsEnabled = 0;
+    Dpol_INT prev;
+    I32 * termRepresentation = new I32[numVariables];
+    
+    // Has to determine exact number of enabled terms in the polynomial.
+    const uint coefSegment = polyIdx / (SIZEOF_ULONG * 8);
+    const uint coefOffset = polyIdx % (SIZEOF_ULONG * 8);
+    for(uint order = 0; order <= orderLimit; order++){
+        CombinatiorialGenerator cg(numVariables, order);
+        for(; cg.next(); ){
+            const ULONG ctr = cg.getCounter();
+            termsEnabled += (coefs[order][outputWidthUlong*ctr+coefSegment] & (1<<(coefOffset))) > 0;
+        }
+    }
+    
+    // Create empty polynomial.
+    prev=FGB(creat_poly)(termsEnabled);
+    
+    // Iterate again - now construct polynomial.
+    uint termCounter=0;
+    for(uint order = 0; order <= orderLimit; order++){
+        CombinatiorialGenerator cg(numVariables, order);
+        for(; cg.next(); ){
+            const ULONG ctr = cg.getCounter();
+            if ((coefs[order][outputWidthUlong*ctr+coefSegment] & (1<<(coefOffset))) == 0) continue;
+            
+            // Coefficient is present, set term variables to representation.
+            const ULONG * state = cg.getCurState();
+            memset(termRepresentation, 0, sizeof(I32) * numVariables);
+            for(uint x=0; x<order; x++){
+                termRepresentation[state[x]]=1;
+            }
+            
+            // Set term to the polynomial.
+            FGB(set_expos2)(prev, termCounter, termRepresentation, numVariables);
+            
+            // Set term coefficient (simple, always 1 since we are in GF(2)).
+            FGB(set_coeff_I32)(prev, termCounter, 1);
+            
+            termCounter+=1;
+        }
+    }  
+    delete[] termRepresentation;
+    return prev;
+}

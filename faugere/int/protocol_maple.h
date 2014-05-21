@@ -1,6 +1,8 @@
 #ifndef stamp_maple_protocol
 
 #define stamp_maple_protocol
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+#pragma GCC diagnostic ignored "-Wunused-function"
 
 typedef enum {
   FGB_COMPUTE_GBASIS=1,

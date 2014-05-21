@@ -22,6 +22,16 @@
 // Maximum order of terms.
 #define MAX_ORDER 6
 
+//
+// FGb
+//
+
+// The following macro should be 1 to call FGb modulo a prime number.
+#define LIBMODE 1  
+#define CALL_FGB_DO_NOT_DEFINE
+#include "call_fgb.h"
+#define FGb_MAXI_BASE 100000
+
 class Approximation {
 private:
     ICipher  * cip;
@@ -35,7 +45,12 @@ private:
     ULONG * ulongOut;
     
     // Cache polynomial coefficients for low order.
-    // Indexing is as follows coefficients[order][coefficient index][polyout].
+    // Indexing is as follows coefficients[order][coefficient_index][polyout].
+    //    Where order is the order of terms represented in the structure.
+    //    coefficient_index is the order number of the combination of variables
+    //      in particular term, terms follow lexicographic order.
+    //    polyout: Output block for polynomials. Each bit in this block
+    //      tells whether in the particular polynomial given term is present or not.
     //
     // Size of this array can be precomputed from the cipher.
     // Let iw = input width of the cipher in bytes (message+key).
@@ -72,6 +87,9 @@ private:
     
     // Number of threads to use for parallelized computation.
     uint threadCount;
+    
+    // Variable names for FGb.
+    char ** varNames;
     
 public:
     Approximation(uint orderLimit);
@@ -136,7 +154,7 @@ public:
      * @param coeffEval             Storage provided by the caller to store the new function in.
      * @return 
      */
-    int partialEvaluation(uint newVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval);
+    int partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval);
     
     /**
      * Tests polynomial approximation of the cipher.
@@ -170,6 +188,15 @@ public:
      Procedure for solving equation for keys with using GB.
      */
     void solveKeyGrobner(uint samples);
+    
+    /**
+     * Generated FGb polynomial representation.
+     * Allocates a new memory.
+     * @param coefs     Coefficient storage for the polynomials.
+     * @param maxOrder  Maximal order of the terms stored in coefs.
+     * @param polyIdx   Which polynomial to represent.
+     */
+    Dpol_INT polynomial2FGb(uint numVariables, std::vector<ULONG> * coefs, uint maxOrder, uint polyIdx);
     
     ICipher * getCipher() const { return cip; }
     void      setCipher(ICipher * cip);
