@@ -20,7 +20,7 @@
 #include "ICipher.h"
 
 // Maximum order of terms.
-#define MAX_ORDER 7
+#define MAX_ORDER 6
 
 class Approximation {
 private:
@@ -46,7 +46,7 @@ private:
     // Third dimension is ceil(ow/sizeof(ulong)).
     // In order to optimize memory storage/access of/to this structure
     // 2nd and 3rd dimension are merged to one.
-    std::vector<ULONG> coefficients[5];
+    std::vector<ULONG> coefficients[MAX_ORDER];
     
     // Limit on the term order for storage.
     // Only terms of order/degree less than or equals to this limit will
@@ -123,6 +123,20 @@ public:
      * @return 
      */
     int evaluateCoefficients(const unsigned char * input, unsigned char * output, ULONG * iBuff, ULONG * oBuff) const;
+    
+    /**
+     * Partially evaluates approximated function on a given input.
+     * Result is again a function, but with smaller number of variables. 
+     * 
+     * @param newVariables          Number of the variables in a new partially evaluated function.
+     * @param variablesValueMask    Variables bit mask for evaluation (we have values for them.) 
+     *                              Hamming_weight(variablesValueMask) = bitWIdth - newVariables.
+     * @param iBuff                 Input to the evaluation. Values for variables to evaluate.
+     *                              Only masked values are taken into consideration.
+     * @param coeffEval             Storage provided by the caller to store the new function in.
+     * @return 
+     */
+    int partialEvaluation(uint newVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval);
     
     /**
      * Tests polynomial approximation of the cipher.

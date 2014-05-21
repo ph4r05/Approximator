@@ -586,7 +586,6 @@ int Approximation::selftestIndexing() {
     return 0;
 }
 
-
 void Approximation::solveKeyGrobner(uint samples) {
     // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
@@ -620,6 +619,44 @@ void Approximation::solveKeyGrobner(uint samples) {
         // Now we obtain system of equations with key variables.
         // 128 equations with 128 unknown bits.
         
+        //
+        // Here we want generalized partial evaluation of the function. 
+        // Generalized evaluation takes parameters: 
+        //
+        
+        // Number of variables in the partially evaluated function.//
+        const uint newVariables = 128; 
+        
+        // Bitmask of variables for which we have valid value.
+        ULONG * variablesValueMask = new ULONG[this->inputWidthUlong];
+        variablesValueMask[0] = FULL_ULONG;
+        variablesValueMask[1] = FULL_ULONG;
+        
+        // Input variables, only masked are taken into consideration.
+        // Generate random plaintext.
+        ULONG * iBuff = new ULONG[this->inputWidthUlong];
+        memset(iBuff, 0, SIZEOF_ULONG * this->inputWidthUlong);
+        for(uint x = 0; x < cip->getInputBlockSize(); x++){
+            uint rnd = rand() % 0x100;
+            iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], rnd, x%SIZEOF_ULONG);
+        }
+        
+        // New function is stored in another coefficient array.
+        // Allocate space for the coefficients.
+        std::vector<ULONG> coeffEval[MAX_ORDER];
+        for(unsigned int order = 0; order<=orderLimit; order++){
+            ULONG vecSize = CombinatiorialGenerator::binomial(8*newVariables, order) * outputWidthUlong;
+            coeffEval[order].assign(vecSize, (ULONG) 0);
+        }
+        
+        // Partial evaluation = reduces terms with evaluated variables.
+        partialEvaluation(newVariables, variablesValueMask, iBuff, coeffEval);
+        
+        // TODO: add ciphertext value to the constant term.
+        // TODO: build basis for the GB computation from coefficients.
+        // TODO: get GB solution, test key success.
+        
+        
         
     }
     
@@ -628,3 +665,91 @@ void Approximation::solveKeyGrobner(uint samples) {
     delete[] outputCip;
     delete[] outputPol;
 }
+
+int Approximation::partialEvaluation(uint newVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) {
+    // Order 0 and higher.
+    ULONG * newTerm = new ULONG[orderLimit];
+    for(uint order = 0; order <= orderLimit; order++){
+        CombinatiorialGenerator oldCg(8*byteWidth,  order);
+        
+        // Iterate over coefficients for the higher function and update coefficients for
+        // the lower function terms.
+        for(; oldCg.next(); ){
+            const ULONG ctr = oldCg.getCounter();
+            // Now term being evaluated is fixed, defined by the state
+            // of the combinatorial generator. 
+            //
+            // Get bit-mask with those bits enabled corresponding to variables in
+            // the particular term determined by oldCg.
+            const ULONG * comb  = oldCg.getCurUlongCombination();
+            
+            // Evaluate particular term on the input.
+            // Here we evaluate only specified variables on the input. Result
+            // of this evaluation becomes a new term coefficient for the low function term.
+            bool termEval=true;
+            for(uint uctr2=0; uctr2<inputWidthUlong; uctr2++){
+                // Term to evaluate will be obtained after masking with provided mask.
+                const ULONG term = comb[uctr2] & variablesValueMask[uctr2];
+                // Evaluate masked term on the masked input (only for masked values 
+                // the input has sense).
+                termEval &= (term & iBuff[uctr2] & variablesValueMask[uctr2]) == term;
+            }
+            
+            // If term is null thus cannot be in the low function under this input.
+            if (!termEval){
+                continue;
+            }
+            
+            // This term is present in the low function.
+            // Determine the low term index manually.
+            uint torder = 0;
+            uint curRemoved = 0; // number of removed variables in interval 0..current.
+            memset(newTerm, 0, orderLimit * SIZEOF_ULONG);
+            for(uint uctr2=0; uctr2<inputWidthUlong; uctr2++){
+                // Examine each bit separately.
+                // If we already have term of the highest possible order, stop it.
+                for(uint x=0; x<SIZEOF_ULONG*8 && torder<orderLimit; x++){
+                    // Optimization - skipping large consecutive blocks.
+                    if ((x & 0x7) == 0){
+                        // If there is a full skip (all variables evaluated, skip.)
+                        if (((variablesValueMask[uctr2]>>x) & 0xff) == 0xff){
+                            curRemoved+=8;
+                            x+=7;
+                            continue;
+                        }
+                    }
+                    
+                    // Future optimization: compute hamming weight to an external table.
+                    // If current bit is set to 1 in the mask -> was evaluated already (not a variable anymore).
+                    if (variablesValueMask[uctr2] & (1 << x)){
+                        curRemoved+=1;
+                        continue;
+                    }
+                    
+                    // Mask is zero here -> it is a variable. If it is present in 
+                    // the termRest, we have winner.
+                    if (comb[uctr2] & (1 << x)){
+                        // This bit is set, add to the combination.
+                        newTerm[torder++] = curRemoved-x;
+                    }
+                }
+            }
+            
+            // Compute index of this term and toggle it in the low function.
+            ULONG newTermIdx = getCombinationIdx(torder, newTerm);
+            
+            // After partial evaluation term has coefficient 1 and can be present
+            // in polynomials under this input.
+            // Thus if the higher term (originating one) was present in the particular
+            // polynomial, add this low term (reduced/evaluated) to the corresponding polynomial.
+            for(uint uctr2=0; uctr2<outputWidthUlong; uctr2++){
+                coeffEval[torder][outputWidthUlong*newTermIdx + uctr2] ^= coefficients[order][outputWidthUlong*ctr + uctr2];
+            }
+        }
+    }
+    
+    delete[] newTerm;
+    return 0;
+}
+
+
