@@ -25,12 +25,7 @@
 //
 // FGb
 //
-
-// The following macro should be 1 to call FGb modulo a prime number.
-#define LIBMODE 1  
-#define CALL_FGB_DO_NOT_DEFINE
-#include "call_fgb.h"
-#define FGb_MAXI_BASE 100000
+#include "faugere/fgb.h"
 
 class Approximation {
 private:

@@ -48,8 +48,8 @@ OBJECTFILES= \
 CFLAGS=
 
 # CC Compiler Flags
-CCFLAGS=-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lboost_program_options
-CXXFLAGS=-lm -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lboost_program_options
+CCFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp
+CXXFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp
 
 # Fortran Compiler Flags
 FFLAGS=
@@ -58,7 +58,7 @@ FFLAGS=
 ASFLAGS=
 
 # Link Libraries and Options
-LDLIBSOPTIONS=-Lfaugere/x64
+LDLIBSOPTIONS=-Lfaugere/x64 -lm -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf `pkg-config --libs libcrypto` -ldl   
 
 # Build Targets
 .build-conf: ${BUILD_SUBPROJECTS}
@@ -66,42 +66,42 @@ LDLIBSOPTIONS=-Lfaugere/x64
 
 ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation: ${OBJECTFILES}
 	${MKDIR} -p ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}
-	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation ${OBJECTFILES} ${LDLIBSOPTIONS} -lcrypto -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp
+	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation ${OBJECTFILES} ${LDLIBSOPTIONS}
 
 ${OBJECTDIR}/AESCipher.o: AESCipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipher.o AESCipher.cpp
+	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipher.o AESCipher.cpp
 
 ${OBJECTDIR}/Approximation.o: Approximation.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Approximation.o Approximation.cpp
+	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Approximation.o Approximation.cpp
 
 ${OBJECTDIR}/CombinatiorialGenerator.o: CombinatiorialGenerator.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/CombinatiorialGenerator.o CombinatiorialGenerator.cpp
+	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/CombinatiorialGenerator.o CombinatiorialGenerator.cpp
 
 ${OBJECTDIR}/ICipher.o: ICipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
+	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
 
 ${OBJECTDIR}/ProgressMonitor.o: ProgressMonitor.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ProgressMonitor.o ProgressMonitor.cpp
+	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ProgressMonitor.o ProgressMonitor.cpp
 
 ${OBJECTDIR}/base.o: base.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/base.o base.cpp
+	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/base.o base.cpp
 
 ${OBJECTDIR}/main.o: main.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol -std=c++11 -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
+	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
 
 # Subprojects
 .build-subprojects:

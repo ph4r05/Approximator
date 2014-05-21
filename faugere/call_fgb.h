@@ -1,7 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include "style.h"
-
+#ifdef	__cplusplus
+extern "C" {
+#endif
+   
 #define MAPLE_FGB_BIGNNI 2
 #ifndef LIBMODE
 #define LIBMODE 2
@@ -13,10 +13,6 @@
 #define FGB(fn) FGb_ ## fn
 #endif /*  LIBMODE==2 */
 
-
-typedef void* Expos;
-typedef void* Dpol;
-typedef Dpol Dpol_INT;
 
 #include "protocol_maple.h"
 
@@ -98,3 +94,7 @@ void FGb_pop_gmp_alloc_fnct()
 #else
 extern FILE* log_output;
 #endif /* ndef CALL_FGB_DO_NOT_DEFINE */
+
+#ifdef	__cplusplus
+}
+#endif
