@@ -8,6 +8,7 @@
 #ifndef BASE_H
 #define	BASE_H
 #include <iostream>
+#include <iomanip>
 
 typedef unsigned char uchar;
 typedef unsigned int  uint;
@@ -25,10 +26,12 @@ typedef unsigned long ulong;
 typedef unsigned long long ULONG;
 #define SIZEOF_ULONG 8
 #define FULL_ULONG 0xffffffffffffffffull
+#define ULONG1 ((ULONG) 1ull)
 #else 
 typedef unsigned long ULONG;
 #define SIZEOF_ULONG 4
 #define FULL_ULONG 0xfffffffful
+#define ULONG1 1ul
 #endif
 
 // Shifts term to the right 8*shift, and takes the lower 8 bits (corresponds to the input
@@ -64,8 +67,23 @@ typedef unsigned long ULONG;
 #define OWN_CEIL(x)  (    (((int)(x)) < (x)) ? ((int)(x))+1 : ((int)(x))    )
 #define OWN_FLOOR(x) (    (((int)(x)) < (x)) ? ((int)(x))-1 : ((int)(x))    )
 
-void dumpUcharHex(std::ostream & c, const uchar* inp, unsigned int size);
-void dumpUlongHex(std::ostream & c, const ULONG* inp, unsigned int size);
-void dumpUchar   (std::ostream & c, const uchar * inp, unsigned int size);
+template<class T>
+void dumpHex(std::ostream & c, const T * inp, unsigned int size, bool endl=1) {
+    c << std::showbase // show the 0x prefix
+      << std::internal // fill between the prefix and the number
+      << std::setfill('0'); // fill with 0s
+    
+    for(unsigned int i = 0; i < size; i++){
+        c << std::hex << std::setw(sizeof(T)) << (static_cast<const ULONG>(inp[i])) << " ";
+    }
+    
+    if (endl){
+        c << std::endl;
+    }
+}
+
+inline void dumpUcharHex(std::ostream & c, const uchar* inp, unsigned int size, bool endl=1){ dumpHex(c, inp, size, endl); }
+inline void dumpUlongHex(std::ostream & c, const ULONG* inp, unsigned int size, bool endl=1){ dumpHex(c, inp, size, endl); }
+void dumpUchar   (std::ostream & c, const uchar * inp, unsigned int size, bool endl=1);
 
 #endif	/* BASE_H */
