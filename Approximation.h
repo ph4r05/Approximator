@@ -190,7 +190,7 @@ public:
     /**
      Procedure for solving equation for keys with using GB.
      */
-    void solveKeyGrobner(uint samples);
+    void solveKeyGrobner(uint samples, bool dumpInputBase=false);
     
     /**
      * Generated FGb polynomial representation.

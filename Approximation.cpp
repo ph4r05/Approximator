@@ -642,7 +642,7 @@ int Approximation::selftestIndexing() {
     return 0;
 }
 
-void Approximation::solveKeyGrobner(uint samples) {
+void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
@@ -745,8 +745,6 @@ void Approximation::solveKeyGrobner(uint samples) {
             inputBasis[sample*numPolynomials + polyCtr] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms);
             numTermsSum += numTerms;
             
-            cout << "idx2store=" << (sample*numPolynomials + polyCtr) << " ptr=" << inputBasis[sample*numPolynomials + polyCtr] << endl;
-            
             pmBasis.setCur((double)poly / double(numPolynomials));
             polyCtr+=1;
         }
@@ -755,7 +753,10 @@ void Approximation::solveKeyGrobner(uint samples) {
     }
     
     // Print out input basis
-    dumpBasis(numVariables, inputBasis, samples*numPolynomials);
+    if (dumpInputBase){
+        cout << " Input basis: " << endl;
+        dumpBasis(numVariables, inputBasis, samples*numPolynomials);
+    }
     
     // Compute Gb.
     {
