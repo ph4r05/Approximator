@@ -681,9 +681,11 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     cout << "Generated secret key: " << endl;
     dumpUcharHex(cout, key, cip->getKeyBlockSize());
     
-    // Dump how polynomail-take-map looks like.
+    // Dump how polynomial-take-map looks like.
+    cout << " NumVariables=" << numVariables << endl;
     cout << " NumPoly="<<numPolynomials<<"; Polymap: ";
     dumpHex(cout, poly2take, outputWidthUlong);
+    cout << " Expected basis size=" << dec << (samples*numPolynomials) << endl;
     
     // Init FGb library.
     int step0=-1;
@@ -692,7 +694,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
   
     // Generate tons of random messages.
     for(ulong sample=0; sample<samples; sample++){
-        cout << " [+] Starting with sample="<<sample<<endl;
+        cout << endl << " [+] Starting with sample="<<sample<<endl;
         
         // Generate message at random.
         // Fix plaintext variables to the generated ones. 
@@ -787,6 +789,12 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
 
     // For now just print out the Grobner basis.
     dumpBasis(numVariables, outputBasis, nb);
+    
+    // TODO: Solve Gb with NTL, GaussJordan to obtain solution for the system.
+    // TODO: use linearization trick.
+    // TODO: use http://icm.mcs.kent.edu/reports/1995/gb.pdf to solve the system.
+    
+    
     }
 
     deinitFGb();
@@ -805,7 +813,7 @@ void Approximation::dumpFGbPoly(uint numVariables, Dpol poly) {
     const I32 nb_mons = FGB(nb_terms)(poly);        // Number of Monomials.
     I32* Mons = new I32[numVariables * nb_mons];    // (UI32*) (malloc(sizeof (UI32) * numVariables * nb_mons));
     I32* Cfs = new I32[nb_mons];                    // (I32*) (malloc(sizeof (I32) * nb_mons));
-    int code = FGB(export_poly)(numVariables, nb_mons, Mons, Cfs, poly);
+    FGB(export_poly)(numVariables, nb_mons, Mons, Cfs, poly);
     I32 j;
     for (j = 0; j < nb_mons; j++) {
 
@@ -848,7 +856,6 @@ void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) {
     }
     cout << "]" << endl;
 }
-
 
 void Approximation::initFGb(uint numVariables) {
     FGB(enter)(); /* First thing to do : GMP original memory allocators are saved */
