@@ -88,7 +88,7 @@ const uchar * CombinatiorialGenerator::getCurCombination() {
     memset(curCombination, 0, sizeof(uchar)*byteWidth);
     for(unsigned i = 0; i<down; i++){
         //cout << "; c_"<<i<<"=" << curState[i] << " ";
-        curCombination[ curState[i]/8 ] |= 1u << (curState[i]%8);
+        curCombination[ curState[i]/8 ] |= ULONG1 << (curState[i]%8);
     }
     curCombinationValid=true;
     return curCombination;
@@ -102,7 +102,7 @@ const ULONG* CombinatiorialGenerator::getCurUlongCombination() {
     // Set bit representation from the current state.
     memset(curUlongCombination, 0, SIZEOF_ULONG*byteUlongWidth);
     for(unsigned i = 0; i<down; i++){
-        curUlongCombination[ curState[i]/(8*SIZEOF_ULONG) ] |= ((ULONG)1u) << (curState[i]%(8*SIZEOF_ULONG));
+        curUlongCombination[ curState[i]/(8*SIZEOF_ULONG) ] |= ULONG1 << (curState[i]%(8*SIZEOF_ULONG));
     }
     curUlongCombinationValid=true;
     return curUlongCombination;
@@ -118,7 +118,7 @@ void CombinatiorialGenerator::firstCombination() {
 
 bool CombinatiorialGenerator::next() {
     // Very special case, down=0, at the end right now.
-    if (down<=0){
+    if (down<0){
         return false;
     }
     
@@ -129,6 +129,8 @@ bool CombinatiorialGenerator::next() {
         started=true;
         counter=0;
         return true;
+    } else if(down==0) {
+        return false;
     }
     
     //
