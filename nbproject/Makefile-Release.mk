@@ -58,7 +58,7 @@ FFLAGS=
 ASFLAGS=
 
 # Link Libraries and Options
-LDLIBSOPTIONS=-Lfaugere/x64 -lm -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf `pkg-config --libs libcrypto` -ldl   
+LDLIBSOPTIONS=-Lfaugere/x64 -lm -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf `pkg-config --libs libcrypto`  
 
 # Build Targets
 .build-conf: ${BUILD_SUBPROJECTS}
