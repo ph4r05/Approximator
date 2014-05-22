@@ -88,6 +88,7 @@ void Approximation::init() {
     assert(ulongOut==NULL && ulongInp==NULL); // no repeated allocation.
     assert(outputWidthUlong>0 && inputWidthUlong>0);
     assert(orderLimit>=0 && orderLimit<MAX_ORDER);
+    assert(SIZEOF_ULONG == sizeof(ULONG));
     
     // Pre-compute cube binomial coefficients
     // Allocating & computing binomial sums for term coefficients.
@@ -324,7 +325,7 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
         uint randOrder = 1 + (rand() % orderLimit);
         for(uint k=0; k<randOrder; k++){
             const uint randIdx = rand() % (8*byteWidth);
-            input[(randIdx/8) % byteWidth] |= 1ul << (randIdx%8);
+            input[(randIdx/8) % byteWidth] |= ULONG1 << (randIdx%8);
         }
         
         // Evaluate cipher.
@@ -335,7 +336,7 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
         
         // Compute statistics - number of hits for individual polynomial.
         for(uint p=0; p<8*cip->getOutputBlockSize(); p++){
-            hits[p] += (outputCip[p/8] & (1u << (p%8))) == (outputPol[p/8] & (1u << (p%8)));
+            hits[p] += (outputCip[p/8] & (ULONG1 << (p%8))) == (outputPol[p/8] & (ULONG1 << (p%8)));
         }
         
         // Progress monitoring.
@@ -404,7 +405,7 @@ int Approximation::testPolynomialApproximation(unsigned long numSamples) {
         
         // Compute statistics - number of hits for individual polynomial.
         for(uint p=0; p<8*cip->getOutputBlockSize(); p++){
-            hits[p] += (outputCip[p/8] & (1u << (p%8))) == (outputPol[p/8] & (1u << (p%8)));
+            hits[p] += (outputCip[p/8] & (ULONG1 << (p%8))) == (outputPol[p/8] & (ULONG1 << (p%8)));
         }
         
         // Progress monitoring.
@@ -639,30 +640,13 @@ void Approximation::solveKeyGrobner(uint samples) {
     ULONG * iBuff = new ULONG[this->inputWidthUlong];
     
     // FGb polynomials. We have here specific number of polynomials.
-    Dpol_INT * inputBasis = new Dpol_INT[numPolynomials];
-    Dpol_INT outputBasis[FGb_MAXI_BASE];
+    Dpol * inputBasis  = new Dpol[numPolynomials];
+    Dpol * outputBasis = new Dpol[FGb_MAXI_BASE];
     
     // Init FGb library.
     int step0=-1;
     int bk0=0;
-    FGB(enter)(); /* First thing to do : GMP original memory allocators are saved */
-    FGB(init_urgent)(1,1,"DRLDRL",100000,0); /* meaning of the second parameter:
-                                                               2 is the number of bytes of each coefficients 
-                                                               so the maximal prime is 65521<2^16
-                                                               1 is the number of bytes of each exponent : 
-                                                               it means that each exponent should be < 128 */
-    FGB(init)(1,1,0,log_output); /* do not change */
-    {
-      UI32 pr[]={(UI32)(2)}; /* We compute in GF(2)[x1,x2,...,x_{8*byteWidth}] */
-      FGB(reset_coeffs)(1,pr);
-    }
-    {
-      FGB(reset_expos)(numVariables,0,varNames);  /* Define the monomial ordering: DRL(k1,k2) where 
-                                    k1 is the size of the 1st block of variables 
-                                    k2 is the size of the 2nd block of variables 
-                                    and k1+k2=nb_vars is the total number of variables
-                                   */
-    }
+    initFGb(numVariables);
   
     // Generate tons of random messages.
     for(unsigned long sample=0; sample<samples; sample++){
@@ -688,10 +672,12 @@ void Approximation::solveKeyGrobner(uint samples) {
         std::vector<ULONG> coeffEval[MAX_ORDER];
         for(unsigned int order = 0; order<=orderLimit; order++){
             ULONG vecSize = CombinatiorialGenerator::binomial(numVariables, order) * outputWidthUlong;
+            cout << " Allocating pEval function, order=" << dec << order << "; vecSize=" << vecSize << endl;
             coeffEval[order].assign(vecSize, (ULONG) 0);
         }
         
         // Partial evaluation = reduces terms with evaluated variables.
+        cout << " Going to partially evaluate approximating function." << endl;
         partialEvaluation(numVariables, variablesValueMask, iBuff, coeffEval);
         
         // Add ciphertext values to the polynomials to obtain system of equations.
@@ -699,13 +685,22 @@ void Approximation::solveKeyGrobner(uint samples) {
             coeffEval[0][x/SIZEOF_ULONG] ^= ((ULONG)outputCip[x])<<(8 * (x % SIZEOF_ULONG));
         }
         
-        // Building GB basis from the coefficients.
+        // Proceed polynomial per polynomial, build input basis for FGb.
+        cout << " Generating input basis." << endl << " ";
+        ProgressMonitor pmBasis(0.01);
+        ULONG numTermsSum=0;
+        
         memset(inputBasis, 0, sizeof(Dpol_INT) * numPolynomials);
-        // Proceed polynomial per polynomial.
         for(uint poly=0; poly<numPolynomials; poly++){
-            // For each polynomial exact number of terms has to be known in advance.
-            inputBasis[numPolynomials + poly] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly);
+            // Convert out internal polynomial representation to FGb representation.
+            ULONG numTerms = 0;
+            inputBasis[poly] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms);
+            numTermsSum += numTerms;
+            
+            pmBasis.setCur((double)poly / double(numPolynomials));
         }
+        pmBasis.setCur(1.0);
+        cout << "; Number of terms on average: " << ((double)numTermsSum / (double)numPolynomials) << endl;
         
         // Compute Gb.
         {
@@ -721,7 +716,7 @@ void Approximation::solveKeyGrobner(uint samples) {
                                (need to define a monomial ordering DRL(k1,k2) with k2>0 ) */
         env->_off=0;       /* should be 0 for modulo p computation	*/
 
-        env->_index=50000; /* This is is the maximal size of the matrices generated by F4 
+        env->_index=700000; /* This is is the maximal size of the matrices generated by F4 
                               you can increase this value according to your memory */
         env->_zone=0;    /* should be 0 */
         env->_memory=0;  /* should be 0 */
@@ -731,13 +726,28 @@ void Approximation::solveKeyGrobner(uint samples) {
            step0 : this is the number primes for the first step
                    if step0<0 then this parameter is automatically set by the library
          */
+        cout << " [+] Going to compute GB, n_input="<<dec<<n_input<<endl;
         nb=FGB(groebner)(inputBasis,n_input,outputBasis,1,0,&t0,bk0,step0,0,env);
+
+        // For now just print out the Grobner basis.
+        cout << "[ nb=" << nb << endl;
+        for (int i = 0; i < nb; i++) {
+            // Use this fuction to print the result.
+            // FGB(see_Dpol)(outputBasis[i]);
+            
+            dumpFGbPoly(numVariables, outputBasis[i]);
+            if (i < (nb - 1)) {
+                cout << endl;
+            }
+        }
+        cout << "]" << endl;
         }
         
         
         FGB(reset_memory)(); /* to reset Memory */
-        FGB(exit)(); /* restore original GMP allocators */
     }
+    
+    deinitFGb();
     
     delete[] key;
     delete[] input;
@@ -745,13 +755,75 @@ void Approximation::solveKeyGrobner(uint samples) {
     delete[] variablesValueMask;
     delete[] iBuff;
     delete[] inputBasis;
+    delete[] outputBasis;
+}
+
+void Approximation::dumpFGbPoly(uint numVariables, Dpol poly) {
+    // Import the internal representation of each polynomial computed by FGb.
+    const I32 nb_mons = FGB(nb_terms)(poly);        // Number of Monomials.
+    I32* Mons = new I32[numVariables * nb_mons];    // (UI32*) (malloc(sizeof (UI32) * numVariables * nb_mons));
+    I32* Cfs = new I32[nb_mons];                    // (I32*) (malloc(sizeof (I32) * nb_mons));
+    int code = FGB(export_poly)(numVariables, nb_mons, Mons, Cfs, poly);
+    I32 j;
+    for (j = 0; j < nb_mons; j++) {
+
+        UI32 k, is_one = 1;
+        I32* ei = Mons + j*numVariables;
+
+        if (j > 0) {
+            cout << "+";
+        }
+
+        cout << Cfs[j];
+        for (k = 0; k < numVariables; k++)
+            if (ei[k]) {
+                if (ei[k] == 1) {
+                    cout << varNames[k];
+                } else {
+                    cout << varNames[k] << "^" << ei[k];
+                }
+                is_one = 0;
+            }
+        if (is_one) {
+            cout << "*1";
+        }
+    }
+
+    delete[] Mons;
+    delete[] Cfs;
+}
+
+void Approximation::initFGb(uint numVariables) {
+    FGB(enter)(); /* First thing to do : GMP original memory allocators are saved */
+    FGB(init_urgent)(2,MAPLE_FGB_BIGNNI,"DRLDRL",100000,0); /* meaning of the second parameter:
+                                                               2 is the number of bytes of each coefficients 
+                                                               so the maximal prime is 65521<2^16
+                                                               1 is the number of bytes of each exponent : 
+                                                               it means that each exponent should be < 128 */
+    FGB(init)(1,1,0,log_output); /* do not change */
+    {
+      UI32 pr[]={(UI32)(2)}; /* We compute in GF(2)[x1,x2,...,x_{8*byteWidth}] */
+      FGB(reset_coeffs)(1,pr);
+    }
+    {
+      FGB(reset_expos)(numVariables,0,varNames);  /* Define the monomial ordering: DRL(k1,k2) where 
+                                    k1 is the size of the 1st block of variables 
+                                    k2 is the size of the 2nd block of variables 
+                                    and k1+k2=nb_vars is the total number of variables
+                                   */
+    }
+}
+
+void Approximation::deinitFGb() {
+    FGB(reset_memory)(); /* to reset Memory */
+    FGB(exit)(); /* restore original GMP allocators */
 }
 
 int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) {
-    // Order 0 and higher.
-    ULONG * newTerm = new ULONG[orderLimit];
+    assert(numVariables <= 8*byteWidth);
+    ULONG * newTerm = new ULONG[orderLimit+1];
     for(uint order = 0; order <= orderLimit; order++){
-        CombinatiorialGenerator oldCg(8*byteWidth,  order);
+        CombinatiorialGenerator oldCg(8*byteWidth, order);
         
         // Iterate over coefficients for the higher function and update coefficients for
         // the lower function terms.
@@ -789,7 +861,7 @@ int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMa
             for(uint uctr2=0; uctr2<inputWidthUlong; uctr2++){
                 // Examine each bit separately.
                 // If we already have term of the highest possible order, stop it.
-                for(uint x=0; x<SIZEOF_ULONG*8 && torder<orderLimit; x++){
+                for(uint x=0; x<SIZEOF_ULONG*8 && torder<=orderLimit; x++){
                     // Optimization - skipping large consecutive blocks.
                     if ((x & 0x7) == 0){
                         // If there is a full skip (all variables evaluated, skip.)
@@ -802,23 +874,31 @@ int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMa
                     
                     // Future optimization: compute hamming weight to an external table.
                     // If current bit is set to 1 in the mask -> was evaluated already (not a variable anymore).
-                    if (variablesValueMask[uctr2] & (1 << x)){
+                    if (variablesValueMask[uctr2] & (ULONG1 << x)){
                         curRemoved+=1;
                         continue;
                     }
                     
                     // Mask is zero here -> it is a variable. If it is present in 
-                    // the termRest, we have winner.
-                    if (comb[uctr2] & (1 << x)){
+                    // the termRest, we have the winner.
+                    if ((comb[uctr2] & (ULONG1 << x)) > 0){
                         // This bit is set, add to the combination.
-                        newTerm[torder++] = curRemoved-x;
+                        newTerm[torder++] = (uctr2*SIZEOF_ULONG*8)+x-curRemoved;
                     }
                 }
             }
+            assert(torder <= orderLimit);
+            assert(curRemoved <= 8*byteWidth);
             
             // Compute index of this term and toggle it in the low function.
             // Number of variables is reduced, thus set the offset on the number combinations.
-            ULONG newTermIdx = getCombinationIdx(torder, newTerm, 8*byteWidth-numVariables);
+            ULONG newTermIdx = getCombinationIdx(torder, newTerm, 0, 8*byteWidth-numVariables);
+            
+            // Debugging code:
+            // cout << " termOrder="<<torder<<"; from term order="<<order<<";  original term=";
+            // dumpUlongHex(cout, oldCg.getCurState(), order);
+            // cout << "  new=";
+            // dumpUlongHex(cout, newTerm, torder);
             
             // After partial evaluation term has coefficient 1 and can be present
             // in polynomials under this input.
@@ -834,7 +914,7 @@ int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMa
     return 0;
 }
 
-Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs, uint maxOrder, uint polyIdx) {
+Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs, uint maxOrder, uint polyIdx, ULONG * numTerms) {
     ULONG termsEnabled = 0;
     Dpol_INT prev;
     I32 * termRepresentation = new I32[numVariables];
@@ -845,21 +925,21 @@ Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* co
     for(uint order = 0; order <= orderLimit; order++){
         CombinatiorialGenerator cg(numVariables, order);
         for(; cg.next(); ){
-            const ULONG ctr = cg.getCounter();
-            termsEnabled += (coefs[order][outputWidthUlong*ctr+coefSegment] & (1<<(coefOffset))) > 0;
+            const ULONG ctr = cg.getCounter(); 
+            termsEnabled += (coefs[order][outputWidthUlong*ctr+coefSegment] & (ULONG1<<(coefOffset))) > 0;
         }
     }
     
-    // Create empty polynomial.
+    // Create an empty polynomial with specified number of terms. 
     prev=FGB(creat_poly)(termsEnabled);
     
-    // Iterate again - now construct polynomial.
+    // Iterate again - now construct the polynomial.
     uint termCounter=0;
-    for(uint order = 0; order <= orderLimit; order++){
+    for(uint order = 0; order <= orderLimit && termCounter < termsEnabled; order++){
         CombinatiorialGenerator cg(numVariables, order);
-        for(; cg.next(); ){
+        for(; cg.next() && termCounter < termsEnabled; ){
             const ULONG ctr = cg.getCounter();
-            if ((coefs[order][outputWidthUlong*ctr+coefSegment] & (1<<(coefOffset))) == 0) continue;
+            if ((coefs[order][outputWidthUlong*ctr+coefSegment] & (ULONG1<<(coefOffset))) == 0) continue;
             
             // Coefficient is present, set term variables to representation.
             const ULONG * state = cg.getCurState();
@@ -878,8 +958,12 @@ Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* co
         }
     }  
     
-    // Sorting for GB
+    // Sorting for GB, has to be done and is very slowly...
     FGB(full_sort_poly2)(prev);
+    
+    if (numTerms!=NULL){
+        *numTerms = termsEnabled;
+    }
     
     delete[] termRepresentation;
     return prev;

@@ -190,8 +190,19 @@ public:
      * @param coefs     Coefficient storage for the polynomials.
      * @param maxOrder  Maximal order of the terms stored in coefs.
      * @param polyIdx   Which polynomial to represent.
+     * @param numTerms [OPTIONAL] If non-null, it will contain number of terms in the polynomial.
      */
-    Dpol_INT polynomial2FGb(uint numVariables, std::vector<ULONG> * coefs, uint maxOrder, uint polyIdx);
+    Dpol_INT polynomial2FGb(uint numVariables, std::vector<ULONG> * coefs, uint maxOrder, uint polyIdx, ULONG * numTerms);
+    
+    /**
+     * Dumps FGb polynomial to the standard output.
+     * @param numVariables
+     * @param poly
+     */
+    void dumpFGbPoly(uint numVariables, Dpol poly);
+    
+    void initFGb(uint numVariables);
+    void deinitFGb();
     
     ICipher * getCipher() const { return cip; }
     void      setCipher(ICipher * cip);
@@ -201,7 +212,7 @@ public:
     uint getThreadCount() const { return threadCount; }
     void setThreadCount(uint threadCount) { this->threadCount = threadCount; }
 
-
+    
     void genMessages();
 };
 
