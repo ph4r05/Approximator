@@ -8,9 +8,9 @@
 #ifndef ICIPHER_H
 #define	ICIPHER_H
 
-#define GETBIT(bitPos, inp) ((((inp)+(bitPos/8)) & (1u << bitPis%8)) > 0)
-
 #include "base.h"
+
+#define GETBIT(bitPos, inp) ((((inp)+(bitPos/8)) & (ULONG1 << bitPis%8)) > 0)
 
 class ICipher {
 public:
