@@ -74,7 +74,12 @@ void dumpHex(std::ostream & c, const T * inp, unsigned int size, bool endl=1) {
       << std::setfill('0'); // fill with 0s
     
     for(unsigned int i = 0; i < size; i++){
-        c << std::hex << std::setw(sizeof(T)) << (static_cast<const ULONG>(inp[i])) << " ";
+        const ULONG toDisp = static_cast<const ULONG>(inp[i]);
+        if (toDisp==0){
+            c << std::hex << "0x" << std::setw(2 * sizeof(T)) << 0 << " ";
+        } else {
+            c << std::hex << std::setw(2 * sizeof(T)+2) << toDisp << " ";
+        }
     }
     
     if (endl){

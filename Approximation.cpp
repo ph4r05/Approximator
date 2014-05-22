@@ -655,8 +655,10 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     
     // Bit-mask of variables for which we have a valid value.
     ULONG * variablesValueMask = new ULONG[this->inputWidthUlong];
-    variablesValueMask[0] = FULL_ULONG;
-    variablesValueMask[1] = FULL_ULONG;
+    // Set plaintext bits to 1 --> they will be evaluated.
+    for(uint i=0; i<8*cip->getInputBlockSize(); i++){
+        variablesValueMask[i/(8*SIZEOF_ULONG)] |= ULONG1 << (i % (8*SIZEOF_ULONG));
+    }
     
     // Zero key bits are known to us, thus evaluate them with zero during partial evaluation.
     for(uint i=0; i<keybitsToZero; i++){
@@ -686,6 +688,8 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     cout << " NumPoly="<<numPolynomials<<"; Polymap: ";
     dumpHex(cout, poly2take, outputWidthUlong);
     cout << " Expected basis size=" << dec << (samples*numPolynomials) << endl;
+    cout << " Variables to evaluate mask="; 
+    dumpHex(cout, variablesValueMask, this->inputWidthUlong);
     
     // Init FGb library.
     int step0=-1;
