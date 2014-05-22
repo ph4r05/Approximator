@@ -691,14 +691,20 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     cout << " Variables to evaluate mask="; 
     dumpHex(cout, variablesValueMask, this->inputWidthUlong);
     
+    // Whether to show some information during sample computation or not...
+    bool interSampleOutput = samples < 4;
+    
     // Init FGb library.
     int step0=-1;
     int bk0=0;
     initFGb(numVariables);
   
     // Generate tons of random messages.
+    ProgressMonitor pmSample(0.01);
     for(ulong sample=0; sample<samples; sample++){
-        cout << endl << " [+] Starting with sample="<<sample<<endl;
+        if (interSampleOutput){
+            cout << endl << " [+] Starting with sample="<<sample<<endl;
+        }
         
         // Generate message at random.
         // Fix plaintext variables to the generated ones. 
@@ -722,12 +728,17 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
         std::vector<ULONG> coeffEval[MAX_ORDER];
         for(unsigned int order = 0; order<=orderLimit; order++){
             ULONG vecSize = CombinatiorialGenerator::binomial(numVariables, order) * outputWidthUlong;
-            cout << " Allocating pEval function, order=" << dec << order << "; vecSize=" << vecSize << endl;
+            if (interSampleOutput){
+                cout << " Allocating pEval function, order=" << dec << order << "; vecSize=" << vecSize << endl;
+            }
+            
             coeffEval[order].assign(vecSize, (ULONG) 0);
         }
         
         // Partial evaluation = reduces terms with evaluated variables.
-        cout << " Going to partially evaluate approximating function." << endl;
+        if (interSampleOutput){
+            cout << " Going to partially evaluate approximating function." << endl;
+        }
         partialEvaluation(numVariables, variablesValueMask, iBuff, coeffEval);
         
         // Add ciphertext values to the polynomials to obtain system of equations.
@@ -736,10 +747,12 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
         }
         
         // Proceed polynomial per polynomial, build input basis for FGb.
-        cout << " Generating input basis." << endl << " ";
+        if (interSampleOutput){
+            cout << " Generating input basis." << endl << " ";
+        }
+        
         ProgressMonitor pmBasis(0.01);
         ULONG numTermsSum=0;
-        
         for(uint poly=0, polyCtr=0; poly<numPolynomials; poly++){
             // If this polynomial is not selected, do not add it in the input base.
             if (isPoly2Take(poly)==false){
@@ -751,11 +764,31 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
             inputBasis[sample*numPolynomials + polyCtr] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms);
             numTermsSum += numTerms;
             
-            pmBasis.setCur((double)poly / double(numPolynomials));
+            if (interSampleOutput){
+                pmBasis.setCur((double)poly / double(numPolynomials));
+            }
+            
             polyCtr+=1;
         }
-        pmBasis.setCur(1.0);
-        cout << "; Number of terms on average: " << ((double)numTermsSum / (double)numPolynomials) << endl;
+        if (interSampleOutput){
+            pmBasis.setCur(1.0);
+        }
+        
+        
+        if (interSampleOutput){
+            cout << "; Number of terms on average: " << ((double)numTermsSum / (double)numPolynomials) << endl;
+        }
+        
+        // If there is no intersample output, show a general progress bar.
+        if (!interSampleOutput){
+            pmSample.setCur((double)sample / (double)samples);
+        }
+    }
+    
+    // Only if general progressbar is shown.
+    if (!interSampleOutput){
+        pmSample.setCur(1.0);
+        cout << endl;
     }
     
     // Print out input basis
@@ -793,6 +826,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
 
     // For now just print out the Grobner basis.
     dumpBasis(numVariables, outputBasis, nb);
+    cout << "Basis dimension=" << nb << endl;
     
     // TODO: Solve Gb with NTL, GaussJordan to obtain solution for the system.
     // TODO: use linearization trick.
@@ -853,6 +887,7 @@ void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) {
         // Use this fuction to print the result.
         // FGB(see_Dpol)(outputBasis[i]);
         
+        cout << setw(4) << setfill('0') << right << i << ": ";
         dumpFGbPoly(numVariables, basis[i]);
         if (i < (numPoly - 1)) {
             cout << endl;
