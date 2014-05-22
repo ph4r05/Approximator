@@ -34,6 +34,9 @@ int main(int argc, char** argv) {
             ("order,o",        po::value<uint>()->default_value(3)->implicit_value(3),  "Order limit for approximation")
             ("key,k",          po::value<bool>()->default_value(false)->implicit_value(false), "Try to solve key equations with GB")
             ("itest",          po::value<bool>()->default_value(false)->implicit_value(false), "Internal implementation correctness tests")
+            ("key-to-zero,z",  po::value<uint>()->default_value(0)->implicit_value(0),  "Number of key-bits set to zero in GB evaluation.")
+            ("polymap,p",      po::value<std::vector<std::string>>(),                   "List of polynomials to take into solution.")
+            ("samples,s",      po::value<uint>()->default_value(1)->implicit_value(1),  "Number of samples to try.")
 //            ("out-file,o",     po::value<std::string>(),                                       "Output file to write encrypted data")
 //            ("input-files",    po::value<std::vector<std::string>>(),                          "Input files")
 //            ("create-table",   po::value<std::string>(),                                       "Create encryption/decryption tables");
@@ -69,6 +72,9 @@ int main(int argc, char** argv) {
     ap.setCipher(&c);
     ap.init();
     
+    // Number of key bits set to 0.
+    ap.setKeybitsToZero(vm["key-to-zero"].as<uint>());
+    
     // Internal implementation test.
     bool itest = vm["itest"].as<bool>();
     if (itest){
@@ -99,8 +105,14 @@ int main(int argc, char** argv) {
     // GB stuff.
     bool keyEq = vm["key"].as<bool>();
     if (keyEq){
+        if(vm.count("polymap")){
+            std::vector<std::string> polynomials2take = vm["polymap"].as<std::vector<std::string>>();
+            cout << "Polymap set, size="<<polynomials2take.size()<<endl;
+            ap.setPoly2Take(polynomials2take);
+        }
+        
         cout << "Solving key equations with GB" << endl;
-        ap.solveKeyGrobner(1);
+        ap.solveKeyGrobner(vm["samples"].as<uint>());
     }
     
     return 0;

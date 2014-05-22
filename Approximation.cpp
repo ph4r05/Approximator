@@ -34,7 +34,8 @@ using namespace std;
 Approximation::Approximation(uint orderLimit) : cip(NULL), finput(NULL), 
         ulongInp(NULL), ulongOut(NULL), dumpCoefsToFile(false), 
         outputWidthUlong(0), inputWidthUlong(0), binomialSums(NULL),
-        threadCount(1), varNames(NULL) {
+        threadCount(1), varNames(NULL), keybitsToZero(0),
+        poly2take(NULL), numPolyActive(0) {
     
     this->orderLimit = orderLimit;
 }
@@ -73,6 +74,11 @@ Approximation::~Approximation() {
         
         delete[] varNames;
         varNames = NULL;
+    }
+    
+    if (poly2take!=NULL){
+        delete[] poly2take;
+        poly2take = NULL;
     }
 }
 
@@ -113,6 +119,11 @@ void Approximation::init() {
         varNames[var] = new char[10];
         snprintf(varNames[var], 10, "x%d", var);
     }
+    
+    // Init polynomial-to-take bitmap.
+    poly2take = new ULONG[outputWidthUlong];
+    numPolyActive = 8*cip->getOutputBlockSize();
+    memset(poly2take, 0xff, SIZEOF_ULONG * outputWidthUlong);
     
     ulongOut = new ULONG[outputWidthUlong];
     ulongInp = new ULONG[inputWidthUlong];
@@ -156,6 +167,27 @@ ULONG Approximation::getCombinationIdx(uint order, const ULONG* xs, uint xsOffse
             combOffset+1+x1
            );
 }
+
+bool Approximation::isPoly2Take(uint polyIdx) const {
+    return (poly2take[polyIdx / (8*SIZEOF_ULONG)] & (ULONG1 << (polyIdx % (8*SIZEOF_ULONG)))) > 0;
+}
+
+void Approximation::setPoly2Take(const std::vector<std::string> & map) {
+    // Set by default to zero.
+    memset(poly2take, 0x0, SIZEOF_ULONG * outputWidthUlong);
+    // And iterate over enabled functions. 
+    numPolyActive=0;
+    for (std::vector<std::string>::const_iterator it = map.begin() ; it != map.end(); ++it){
+        const std::string cur = *it;
+        const int idx = std::stoi(cur);
+        // Possible duplicates.
+        if (poly2take[idx / (8*SIZEOF_ULONG)] & ULONG1 << (idx % (8*SIZEOF_ULONG))) continue;
+        // Set to map & update counter.
+        poly2take[idx / (8*SIZEOF_ULONG)] |= ULONG1 << (idx % (8*SIZEOF_ULONG));
+        numPolyActive+=1;
+    }
+}
+
 
 void Approximation::work() {    
     // Further pre-computation & initialization.
@@ -615,33 +647,43 @@ void Approximation::solveKeyGrobner(uint samples) {
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
     uchar * key    = new uchar[cip->getKeyBlockSize()];
-    const uint numPolynomials = 8*cip->getOutputBlockSize();
+    const uint numPolynomials = numPolyActive;
+    const uint numVariables = cip->getKeyBlockSize()*8-keybitsToZero;
     
     // Seed (primitive).
     srand((unsigned)time(0)); 
-    
-    // Generate key at random, once for the cipher.
-    // From now it will behave as a black-box and we assume key is unknown to us.
-    for(unsigned int i=0; i<cip->getKeyBlockSize(); i++){ 
-        key[i] = (rand() % (0xffu+1)); 
-    }
-    
-    cout << "Generated secret key: " << endl;
-    dumpUcharHex(cout, key, cip->getKeyBlockSize());
-    
-    const uint numVariables = 128;
     
     // Bit-mask of variables for which we have a valid value.
     ULONG * variablesValueMask = new ULONG[this->inputWidthUlong];
     variablesValueMask[0] = FULL_ULONG;
     variablesValueMask[1] = FULL_ULONG;
     
+    // Zero key bits are known to us, thus evaluate them with zero during partial evaluation.
+    for(uint i=0; i<keybitsToZero; i++){
+        const uint idx = 8*cip->getInputBlockSize() + i;
+        variablesValueMask[idx/(8*SIZEOF_ULONG)] |= ULONG1 << (idx % (8*SIZEOF_ULONG));
+    }
+    
     // Input ULONG buffer
     ULONG * iBuff = new ULONG[this->inputWidthUlong];
     
     // FGb polynomials. We have here specific number of polynomials.
-    Dpol * inputBasis  = new Dpol[numPolynomials];
+    Dpol * inputBasis  = new Dpol[samples*numPolynomials];
     Dpol * outputBasis = new Dpol[FGb_MAXI_BASE];
+    memset(inputBasis, 0, sizeof(Dpol_INT) * samples * numPolynomials);
+    
+    // Generate key at random, once for the cipher.
+    // From now it will behave as a black-box and we assume key is unknown to us.
+    memset(key, 0, sizeof(uchar) * cip->getKeyBlockSize());
+    for(uint i=keybitsToZero; i<8*cip->getKeyBlockSize(); i++){ 
+        key[i/8] |= (rand() % 2) ? (1u << i%8) : 0; 
+    }
+    cout << "Generated secret key: " << endl;
+    dumpUcharHex(cout, key, cip->getKeyBlockSize());
+    
+    // Dump how polynomail-take-map looks like.
+    cout << " NumPoly="<<numPolynomials<<"; Polymap: ";
+    dumpHex(cout, poly2take, outputWidthUlong);
     
     // Init FGb library.
     int step0=-1;
@@ -649,11 +691,13 @@ void Approximation::solveKeyGrobner(uint samples) {
     initFGb(numVariables);
   
     // Generate tons of random messages.
-    for(unsigned long sample=0; sample<samples; sample++){
+    for(ulong sample=0; sample<samples; sample++){
+        cout << " [+] Starting with sample="<<sample<<endl;
+        
         // Generate message at random.
         // Fix plaintext variables to the generated ones. 
         // Now we obtain system of equations with key variables.
-        // 128 equations with 128 unknown bits.
+        // 128 equations with (128-keybitsToZero) unknown bits.
         for(unsigned int i=0; i<cip->getInputBlockSize(); i++){ 
             input[i] = (rand() % (0xffu+1)); 
         }
@@ -661,7 +705,7 @@ void Approximation::solveKeyGrobner(uint samples) {
         // Evaluate cipher.
         cip->evaluate(input, key, outputCip);       
         
-        // Input variables, only masked are taken into consideration during computation.
+        // Input variables, only masked are taken into consideration during partial evaluation.
         memset(iBuff, 0, SIZEOF_ULONG * this->inputWidthUlong);
         for(uint x = 0; x < cip->getInputBlockSize(); x++){
             iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
@@ -690,63 +734,60 @@ void Approximation::solveKeyGrobner(uint samples) {
         ProgressMonitor pmBasis(0.01);
         ULONG numTermsSum=0;
         
-        memset(inputBasis, 0, sizeof(Dpol_INT) * numPolynomials);
-        for(uint poly=0; poly<numPolynomials; poly++){
+        for(uint poly=0, polyCtr=0; poly<numPolynomials; poly++){
+            // If this polynomial is not selected, do not add it in the input base.
+            if (isPoly2Take(poly)==false){
+                continue;
+            }
+            
             // Convert out internal polynomial representation to FGb representation.
             ULONG numTerms = 0;
-            inputBasis[poly] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms);
+            inputBasis[sample*numPolynomials + polyCtr] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms);
             numTermsSum += numTerms;
             
+            cout << "idx2store=" << (sample*numPolynomials + polyCtr) << " ptr=" << inputBasis[sample*numPolynomials + polyCtr] << endl;
+            
             pmBasis.setCur((double)poly / double(numPolynomials));
+            polyCtr+=1;
         }
         pmBasis.setCur(1.0);
         cout << "; Number of terms on average: " << ((double)numTermsSum / (double)numPolynomials) << endl;
-        
-        // Compute Gb.
-        {
-        int nb;
-        double t0;
-        const int n_input=numPolynomials; /* we have 5 polynomials on input */
-        struct sFGB_Comp_Desc Env;
-        FGB_Comp_Desc env=&Env;
-        env->_compute=FGB_COMPUTE_GBASIS; /* The following function can be used to compute Gb, NormalForms, RR, ... 
-                                             Here we want to compute a Groebner Basis */
-        env->_nb=0; /* parameter is used when computing NormalForms (see an example in bug_prog2.c */
-        env->_force_elim=0; /* if force_elim=1 then return only the result of the elimination 
-                               (need to define a monomial ordering DRL(k1,k2) with k2>0 ) */
-        env->_off=0;       /* should be 0 for modulo p computation	*/
-
-        env->_index=700000; /* This is is the maximal size of the matrices generated by F4 
-                              you can increase this value according to your memory */
-        env->_zone=0;    /* should be 0 */
-        env->_memory=0;  /* should be 0 */
-        /* Other parameters :
-           t0 is the CPU time (reference to a double)
-           bk0 : should be 0 
-           step0 : this is the number primes for the first step
-                   if step0<0 then this parameter is automatically set by the library
-         */
-        cout << " [+] Going to compute GB, n_input="<<dec<<n_input<<endl;
-        nb=FGB(groebner)(inputBasis,n_input,outputBasis,1,0,&t0,bk0,step0,0,env);
-
-        // For now just print out the Grobner basis.
-        cout << "[ nb=" << nb << endl;
-        for (int i = 0; i < nb; i++) {
-            // Use this fuction to print the result.
-            // FGB(see_Dpol)(outputBasis[i]);
-            
-            dumpFGbPoly(numVariables, outputBasis[i]);
-            if (i < (nb - 1)) {
-                cout << endl;
-            }
-        }
-        cout << "]" << endl;
-        }
-        
-        
-        FGB(reset_memory)(); /* to reset Memory */
     }
     
+    // Print out input basis
+    dumpBasis(numVariables, inputBasis, samples*numPolynomials);
+    
+    // Compute Gb.
+    {
+    int nb;
+    double t0;
+    const int n_input=samples*numPolynomials; /* we have X polynomials on input */
+    struct sFGB_Comp_Desc Env;
+    FGB_Comp_Desc env=&Env;
+    env->_compute=FGB_COMPUTE_GBASIS; /* The following function can be used to compute Gb, NormalForms, RR, ... 
+                                         Here we want to compute a Groebner Basis */
+    env->_nb=0; /* parameter is used when computing NormalForms (see an example in bug_prog2.c */
+    env->_force_elim=0; /* if force_elim=1 then return only the result of the elimination 
+                           (need to define a monomial ordering DRL(k1,k2) with k2>0 ) */
+    env->_off=0;       /* should be 0 for modulo p computation	*/
+
+    env->_index=700000; /* This is is the maximal size of the matrices generated by F4 
+                          you can increase this value according to your memory */
+    env->_zone=0;    /* should be 0 */
+    env->_memory=0;  /* should be 0 */
+    /* Other parameters :
+       t0 is the CPU time (reference to a double)
+       bk0 : should be 0 
+       step0 : this is the number primes for the first step
+               if step0<0 then this parameter is automatically set by the library
+     */
+    cout << " [+] Going to compute GB, n_input="<<dec<<n_input<<endl;
+    nb=FGB(groebner)(inputBasis,n_input,outputBasis,1,0,&t0,bk0,step0,0,env);
+
+    // For now just print out the Grobner basis.
+    dumpBasis(numVariables, outputBasis, nb);
+    }
+
     deinitFGb();
     
     delete[] key;
@@ -792,6 +833,21 @@ void Approximation::dumpFGbPoly(uint numVariables, Dpol poly) {
     delete[] Mons;
     delete[] Cfs;
 }
+
+void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) {
+    cout << "[ len=" << numPoly << endl;
+    for (uint i = 0; i < numPoly; i++) {
+        // Use this fuction to print the result.
+        // FGB(see_Dpol)(outputBasis[i]);
+        
+        dumpFGbPoly(numVariables, basis[i]);
+        if (i < (numPoly - 1)) {
+            cout << endl;
+        }
+    }
+    cout << "]" << endl;
+}
+
 
 void Approximation::initFGb(uint numVariables) {
     FGB(enter)(); /* First thing to do : GMP original memory allocators are saved */

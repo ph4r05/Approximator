@@ -86,6 +86,14 @@ private:
     // Variable names for FGb.
     char ** varNames;
     
+    // Number of key-bits set to zero.
+    uint keybitsToZero;
+    
+    // Bitmap of polynomials to take into consideration (for example during GB solving).
+    ULONG * poly2take;
+    // Hamming weight of the poly2take.
+    uint numPolyActive;
+    
 public:
     Approximation(uint orderLimit);
     virtual ~Approximation();
@@ -201,7 +209,20 @@ public:
      */
     void dumpFGbPoly(uint numVariables, Dpol poly);
     
+    /**
+     * Dumps polynomial basis.
+     */
+    void dumpBasis(uint numVariables, Dpol * basis, uint numPoly);
+    
+    /**
+     * Initializes FGb library.
+     * @param numVariables
+     */
     void initFGb(uint numVariables);
+    
+    /**
+     * Deinitializes FGb library.
+     */
     void deinitFGb();
     
     ICipher * getCipher() const { return cip; }
@@ -212,6 +233,11 @@ public:
     uint getThreadCount() const { return threadCount; }
     void setThreadCount(uint threadCount) { this->threadCount = threadCount; }
 
+    uint getKeybitsToZero() const { return keybitsToZero; }
+    void setKeybitsToZero(uint keybitsToZero) { this->keybitsToZero = keybitsToZero; }
+
+    void setPoly2Take(const std::vector<std::string> & map);
+    bool isPoly2Take(uint polyIdx) const;
     
     void genMessages();
 };
