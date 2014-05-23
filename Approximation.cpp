@@ -146,7 +146,7 @@ ULONG Approximation::getCombinationIdx(uint order, const ULONG* xs, uint xsOffse
     // Take recursive parameters into consideration.
     const ULONG x1 = xs[0+xsOffset] - combOffset;
     
-    // This is simple optimalization to remove 1 recursion step.
+    // This is simple optimization to remove 1 recursion step.
     if (order==3) {
         const ULONG sum = binomialSums[0][x1+Noffset] - binomialSums[0][Noffset];
         return sum + CombinatiorialGenerator::getQuadIdx(
@@ -257,10 +257,7 @@ void Approximation::computeCoefficients() {
             
             // Transform output to the ULONG array
             // For better memory handling and XORing in an one big register.
-            memset(ulongOut, 0, sizeof(ULONG) * outputWidthUlong);
-            for(uint x=0; x<cip->getOutputBlockSize(); x++){
-                ulongOut[x/SIZEOF_ULONG] = READ_TERM_1(ulongOut[x/SIZEOF_ULONG], output[x], x%SIZEOF_ULONG);
-            }
+            this->readUcharToUlong(output, cip->getOutputBlockSize(), ulongOut);
             
             // Generate coefficients of this order, perform it simultaneously
             // on one ULONG type.
@@ -364,10 +361,7 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
             input[(randIdx/8)] |= ULONG1 << (randIdx%8);
         }
         
-        memset(iBuff, 0, SIZEOF_ULONG * this->inputWidthUlong);
-        for(uint x = 0; x < byteWidth; x++){
-            iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
-        }
+        this->readUcharToUlong(input, byteWidth, iBuff);
         
         // Evaluate cipher.
         cip->evaluate(input, input + cip->getInputBlockSize(), outputCip);
@@ -507,13 +501,9 @@ int Approximation::evaluateCoefficients(const unsigned char* input, unsigned cha
     // the combinatorial generator and reading coefficient by coefficient.
     const uint bitWidth = 8*byteWidth;
     
-    // Reset output buffer, only ones will be set here, has to be set to zero.
-    memset(iBuff, 0, sizeof(ULONG) * inputWidthUlong);
-    
-    // Copy input to ULONG for better manipulation.
-    for(uint x=0; x<byteWidth; x++){
-        iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
-    }
+    // Reset output buffer, only ones will be set here, has to be set to zero
+    // and copy to bigger buffer for better manipulation & speed.
+    this->readUcharToUlong(input, byteWidth, iBuff);
     
     // Evaluation on ULONGs.
     for(uint ulongCtr=0; ulongCtr<outputWidthUlong; ulongCtr++){
@@ -562,10 +552,7 @@ int Approximation::evaluateCoefficients(const unsigned char* input, unsigned cha
     }
     
     // Transform ULONG to output.
-    for(uint x=0; x<cip->getOutputBlockSize(); x++){
-        output[x] = (oBuff[x/SIZEOF_ULONG] >> (8* (x % SIZEOF_ULONG))) & ((unsigned char)0xffu);
-    }
-    
+    this->readUlongToUchar(output, cip->getOutputBlockSize(), oBuff);
     return 0;
 }
 
@@ -758,10 +745,8 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
         cip->evaluate(input, key, outputCip);       
         
         // Input variables, only masked are taken into consideration during partial evaluation.
-        memset(iBuff, 0, SIZEOF_ULONG * this->inputWidthUlong);
-        for(uint x = 0; x < cip->getInputBlockSize(); x++){
-            iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
-        }
+        this->readUcharToUlong(input, cip->getInputBlockSize(), iBuff);
+        this->readUcharToUlong(key,   cip->getKeyBlockSize(),   iBuff + OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG));
         
         // New function is stored in another coefficient array.
         // Allocate space for the coefficients.
@@ -1110,6 +1095,21 @@ Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* co
     
     delete[] termRepresentation;
     return prev;
+}
+
+void Approximation::readUcharToUlong(const uchar * input, uint size, ULONG * iBuff) const {
+    // At first reset memory of the big buffer.
+    memset(iBuff, 0, size);
+    // And read particular parts of the input to the big buffer.
+    for(uint x = 0; x < size; x++){
+        iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
+    }
+}
+
+void Approximation::readUlongToUchar(uchar* output, uint size, const ULONG* iBuff) const {
+    for(uint x=0; x<size; x++){
+        output[x] = (iBuff[x/SIZEOF_ULONG] >> (8* (x % SIZEOF_ULONG))) & ((unsigned char)0xffu);
+    }
 }
 
 //

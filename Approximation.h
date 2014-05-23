@@ -26,6 +26,8 @@
 // FGb
 //
 #include "faugere/fgb.h"
+// NTL library.
+#include <NTL/vec_vec_GF2.h>
 
 class Approximation {
 private:
@@ -224,6 +226,25 @@ public:
      * Deinitializes FGb library.
      */
     void deinitFGb();
+    
+    /**
+     * Reads 8-bit buffer to the 64 bit buffer.
+     * iBuff has to be big enough to fit the input buffer.
+     * 
+     * @param input     input buffer to read.
+     * @param size      size of the input buffer in bytes to read.
+     * @param iBuff     destination buffer.
+     */
+    void readUcharToUlong(const uchar * input, uint size, ULONG * iBuff) const;
+    
+    /**
+     * Reads 64 bit buffer to the 8 bit buffer.
+     * 
+     * @param output    output buffer to write.
+     * @param size      size of the input buffer to read in bytes.
+     * @param iBuff     input buffer to read (from LSB).
+     */
+    void readUlongToUchar(uchar * output, uint size, const ULONG * iBuff) const;
     
     ICipher * getCipher() const { return cip; }
     void      setCipher(ICipher * cip);
