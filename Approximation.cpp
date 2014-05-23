@@ -35,8 +35,7 @@ NTL_CLIENT
 using namespace std;
 using namespace NTL;
 
-Approximation::Approximation(uint orderLimit) : cip(NULL), finput(NULL), 
-        ulongInp(NULL), ulongOut(NULL), dumpCoefsToFile(false), 
+Approximation::Approximation(uint orderLimit) : cip(NULL), dumpCoefsToFile(false), 
         outputWidthUlong(0), inputWidthUlong(0), binomialSums(NULL),
         threadCount(1), varNames(NULL), keybitsToZero(0),
         poly2take(NULL), numPolyActive(0), fgbFile(NULL) {
@@ -44,12 +43,7 @@ Approximation::Approximation(uint orderLimit) : cip(NULL), finput(NULL),
     this->orderLimit = orderLimit;
 }
 
-Approximation::~Approximation() {
-    if (finput!=NULL){
-        delete[] finput;
-        finput=NULL;
-    }
-    
+Approximation::~Approximation() {    
     if (binomialSums!=NULL){
         for(uint order = 1; order <= orderLimit; order++){
             delete[] binomialSums[order-1];
@@ -58,16 +52,6 @@ Approximation::~Approximation() {
         
         delete[] binomialSums;
         binomialSums = NULL;
-    }
-    
-    if (ulongOut!=NULL){
-        delete[] ulongOut;
-        ulongOut = NULL;
-    }
-    
-    if (ulongInp!=NULL){
-        delete[] ulongInp;
-        ulongInp = NULL;
     }
     
     if (varNames!=NULL){
@@ -101,7 +85,6 @@ void Approximation::setCipher(ICipher* cip) {
 
 void Approximation::init() {
     assert(cip!=NULL);
-    assert(ulongOut==NULL && ulongInp==NULL); // no repeated allocation.
     assert(outputWidthUlong>0 && inputWidthUlong>0);
     assert(orderLimit>=0 && orderLimit<MAX_ORDER);
     assert(SIZEOF_ULONG == sizeof(ULONG));
@@ -135,9 +118,9 @@ void Approximation::init() {
     numPolyActive = 8*cip->getOutputBlockSize();
     memset(poly2take, 0xff, SIZEOF_ULONG * outputWidthUlong);
     
-    ulongOut = new ULONG[outputWidthUlong];
-    ulongInp = new ULONG[inputWidthUlong];
-    finput   = new uchar[byteWidth];
+//    ulongOut = new ULONG[outputWidthUlong];
+//    ulongInp = new ULONG[inputWidthUlong];
+//    finput   = new uchar[byteWidth];
     
     // Open logfile for library
     fgbFile = fopen("fgb.log", "a+");
@@ -267,6 +250,10 @@ void Approximation::work() {
 }
 
 void Approximation::computeCoefficients() {
+    ULONG * ulongOut = new ULONG[outputWidthUlong];
+    ULONG * ulongInp = new ULONG[inputWidthUlong];
+    uchar * finput   = new uchar[byteWidth];
+    
     // Allocating space for the coefficients.
     for(unsigned int order = 0; order<=orderLimit; order++){
         // Compute the size of coefficient array.
@@ -390,7 +377,10 @@ void Approximation::computeCoefficients() {
         cout << endl;
     }
     
+    delete[] ulongInp;
+    delete[] ulongOut;
     delete[] output;  
+    delete[] finput;
 }
 
 int Approximation::selftestApproximation(unsigned long numSamples) {
@@ -401,6 +391,8 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
     ULONG * hits   = new ULONG[8*cip->getOutputBlockSize()];
     ULONG * iBuff = new ULONG[this->inputWidthUlong];   // Input ULONG buffer
     ULONG * variablesValueMask = new ULONG[this->inputWidthUlong];
+    ULONG * ulongOut = new ULONG[outputWidthUlong];
+    ULONG * ulongInp = new ULONG[inputWidthUlong];
     const ULONG genLimit = numSamples;
     uint matchErrors=0;
     
@@ -498,6 +490,8 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
     delete[] input;
     delete[] iBuff;
     delete[] variablesValueMask;
+    delete[] ulongInp;
+    delete[] ulongOut;
     return success;
 }
 
@@ -507,6 +501,8 @@ int Approximation::testPolynomialApproximation(unsigned long numSamples) {
     uchar * outputPol = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
     ULONG * hits   = new ULONG[8*cip->getOutputBlockSize()];
+    ULONG * ulongOut = new ULONG[outputWidthUlong];
+    ULONG * ulongInp = new ULONG[inputWidthUlong];
     
     // Seed (primitive).
     srand((unsigned)time(0)); 
@@ -553,6 +549,8 @@ int Approximation::testPolynomialApproximation(unsigned long numSamples) {
     delete[] outputCip;
     delete[] outputPol;
     delete[] input;
+    delete[] ulongInp;
+    delete[] ulongOut;
     
     return 1;
 }
@@ -623,7 +621,7 @@ void Approximation::genMessages() {
     
     // Allocate input & key buffers
     uchar * output = new uchar[cip->getOutputBlockSize()];
-    finput         = new uchar[byteWidth];
+    uchar * finput = new uchar[byteWidth];
     uchar * key    = new uchar[cip->getKeyBlockSize()];
     
     // Seed (primitive).
@@ -650,6 +648,7 @@ void Approximation::genMessages() {
         dumpUchar(cip3, output, cip->getOutputBlockSize());
     }
     
+    delete[] finput;
     delete[] key;
     delete[] output;
 }

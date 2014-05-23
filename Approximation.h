@@ -34,14 +34,6 @@ class Approximation {
 private:
     ICipher  * cip;
     
-    // Key & input parameters prepared for cipher input.
-    uchar * finput;
-    
-    // Input & output blocks defined on ulongs to speed up computation.
-    // During approximated function evaluation these are used as buffers.
-    ULONG * ulongInp;
-    ULONG * ulongOut;
-    
     // Cache polynomial coefficients for low order.
     // Indexing is as follows coefficients[order][coefficient_index][polyout].
     //    Where order is the order of terms represented in the structure.
