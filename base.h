@@ -9,6 +9,8 @@
 #define	BASE_H
 #include <iostream>
 #include <iomanip>
+#include <bitset>
+#include <vector>
 
 typedef unsigned char uchar;
 typedef unsigned int  uint;
@@ -68,6 +70,26 @@ typedef unsigned long ULONG;
 #define OWN_FLOOR(x) (    (((int)(x)) < (x)) ? ((int)(x))-1 : ((int)(x))    )
 
 template<class T>
+void dumpHex(std::ostream & c, const std::vector<T> & inp, unsigned int size, bool endl=1) {
+    c << std::showbase // show the 0x prefix
+      << std::internal // fill between the prefix and the number
+      << std::setfill('0'); // fill with 0s
+    
+    for(unsigned int i = 0; i < size; i++){
+        const ULONG toDisp = static_cast<const ULONG>(inp[i]);
+        if (toDisp==0){
+            c << std::hex << "0x" << std::setw(2 * sizeof(T)) << 0 << " ";
+        } else {
+            c << std::hex << std::setw(2 * sizeof(T)+2) << toDisp << " ";
+        }
+    }
+    
+    if (endl){
+        c << std::endl;
+    }
+}
+
+template<class T>
 void dumpHex(std::ostream & c, const T * inp, unsigned int size, bool endl=1) {
     c << std::showbase // show the 0x prefix
       << std::internal // fill between the prefix and the number
@@ -80,6 +102,32 @@ void dumpHex(std::ostream & c, const T * inp, unsigned int size, bool endl=1) {
         } else {
             c << std::hex << std::setw(2 * sizeof(T)+2) << toDisp << " ";
         }
+    }
+    
+    if (endl){
+        c << std::endl;
+    }
+}
+
+template<class T>
+void dumpBin(std::ostream & c, const T * inp, unsigned int size, bool endl=1) {
+    for(unsigned int i = 0; i < size; i++){
+        const ULONG toDisp = static_cast<const ULONG>(inp[i]);
+        std::bitset<sizeof(T)*8> x(toDisp);
+        c << std::dec << std::setw(8 * sizeof(T)) << x << "b ";
+    }
+    
+    if (endl){
+        c << std::endl;
+    }
+}
+
+template<class T>
+void dumpBin(std::ostream & c, const std::vector<T> & inp, unsigned int size, bool endl=1) {    
+    for(unsigned int i = 0; i < size; i++){
+        const ULONG toDisp = static_cast<const ULONG>(inp[i]);
+        std::bitset<sizeof(T)*8> x(toDisp);
+        c << std::dec << std::setw(8 * sizeof(T)) << x << "b ";
     }
     
     if (endl){
