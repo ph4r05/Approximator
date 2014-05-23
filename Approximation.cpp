@@ -234,6 +234,11 @@ void Approximation::setPoly2Take(const std::vector<std::string> & map) {
     }
 }
 
+uint Approximation::getNumVariables() const {
+    return cip->getKeyBlockSize()*8-keybitsToZero;
+}
+
+
 void Approximation::work() {    
     // Further pre-computation & initialization.
     init();
@@ -782,7 +787,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
     uchar * key    = new uchar[cip->getKeyBlockSize()];
     uchar * keySol = new uchar[cip->getKeyBlockSize()];
     const uint numPolynomials = numPolyActive;
-    const uint numVariables = cip->getKeyBlockSize()*8-keybitsToZero;
+    const uint numVariables = this->getNumVariables();
     
     // Seed (primitive).
     srand((unsigned)time(0)); 
@@ -832,7 +837,6 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
     // Init FGb library.
     int step0=-1;
     int bk0=0;
-    initFGb(numVariables);
   
     // Generate tons of random messages.
     ProgressMonitor pmSample(0.01);
@@ -979,8 +983,6 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
         cout << "Key bit-hit ratio: " << hitRatio << endl;
     }
     }
-
-    deinitFGb();
     
     delete[] key;
     delete[] keySol;
@@ -1155,9 +1157,14 @@ void Approximation::initFGb(uint numVariables) const {
 }
 
 void Approximation::deinitFGb() const {
-    FGB(reset_memory)(); /* to reset Memory */
+    resetFGb();
     FGB(exit)(); /* restore original GMP allocators */
 }
+
+void Approximation::resetFGb() const {
+    FGB(reset_memory)(); /* to reset Memory */
+}
+
 
 int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) const{
     assert(numVariables <= 8*byteWidth);

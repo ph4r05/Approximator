@@ -228,6 +228,7 @@ public:
     
     /**
      Procedure for solving equation for keys with using GB.
+     * FGb has to be initialized before and deinitialized after calling this method!
      */
     void solveKeyGrobner(uint samples, bool dumpInputBase=false) const;
     
@@ -267,6 +268,14 @@ public:
     void deinitFGb() const;
     
     /**
+     * Reset FGb internal memory.
+     * @param output
+     * @param size
+     * @param iBuff
+     */
+    void resetFGb() const;
+    
+    /**
      * Reads 8-bit buffer to the 64 bit buffer.
      * iBuff has to be big enough to fit the input buffer.
      * 
@@ -284,6 +293,12 @@ public:
      * @param iBuff     input buffer to read (from LSB).
      */
     void readUlongToUchar(uchar * output, uint size, const ULONG * iBuff) const;
+    
+    /**
+     * Returns number of variables for current cipher and key-bits-to-zero setting.
+     * @return 
+     */
+    uint getNumVariables() const;
     
     ICipher * getCipher() const { return cip; }
     void      setCipher(ICipher * cip);

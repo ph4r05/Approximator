@@ -113,7 +113,9 @@ int main(int argc, char** argv) {
         }
         
         cout << "Solving key equations with GB" << endl;
+        ap.initFGb(ap.getNumVariables());
         ap.solveKeyGrobner(vm["samples"].as<uint>(), vm["dump-input"].as<bool>());
+        ap.deinitFGb();
     }
     
     return 0;
