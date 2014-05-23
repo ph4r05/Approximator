@@ -92,7 +92,7 @@ void FGb_pop_gmp_alloc_fnct()
 {
 }
 #else
-extern FILE* log_output;
+//extern FILE* log_output;
 #endif /* ndef CALL_FGB_DO_NOT_DEFINE */
 
 #ifdef	__cplusplus

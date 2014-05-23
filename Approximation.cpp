@@ -35,7 +35,7 @@ Approximation::Approximation(uint orderLimit) : cip(NULL), finput(NULL),
         ulongInp(NULL), ulongOut(NULL), dumpCoefsToFile(false), 
         outputWidthUlong(0), inputWidthUlong(0), binomialSums(NULL),
         threadCount(1), varNames(NULL), keybitsToZero(0),
-        poly2take(NULL), numPolyActive(0) {
+        poly2take(NULL), numPolyActive(0), fgbFile(NULL) {
     
     this->orderLimit = orderLimit;
 }
@@ -47,9 +47,9 @@ Approximation::~Approximation() {
     }
     
     if (binomialSums!=NULL){
-        for(uint order = 3; order <= orderLimit; order++){
-            delete[] binomialSums[order-3];
-            binomialSums[order-3]=NULL;
+        for(uint order = 1; order <= orderLimit; order++){
+            delete[] binomialSums[order-1];
+            binomialSums[order-1]=NULL;
         }
         
         delete[] binomialSums;
@@ -80,6 +80,11 @@ Approximation::~Approximation() {
         delete[] poly2take;
         poly2take = NULL;
     }
+    
+    if (fgbFile!=NULL){
+        fclose(fgbFile);
+        fgbFile = NULL;
+    }
 }
 
 void Approximation::setCipher(ICipher* cip) {
@@ -99,9 +104,9 @@ void Approximation::init() {
     // Pre-compute cube binomial coefficients
     // Allocating & computing binomial sums for term coefficients.
     if (orderLimit >= 3){
-        binomialSums = new ULONG * [orderLimit-2];
-        for(uint order = 3; order <= orderLimit; order++){
-            const uint idx = order-3;
+        binomialSums = new ULONG * [orderLimit];
+        for(uint order = 1; order <= orderLimit; order++){
+            const uint idx = order-1;
             binomialSums[idx]    = new ULONG[8*byteWidth];
             binomialSums[idx][0] = 0ul;
 
@@ -128,10 +133,13 @@ void Approximation::init() {
     ulongOut = new ULONG[outputWidthUlong];
     ulongInp = new ULONG[inputWidthUlong];
     finput   = new uchar[byteWidth];
+    
+    // Open logfile for library
+    fgbFile = fopen("fgb.log", "a+");
 }
 
 ULONG Approximation::getCubeIdx(ULONG x1, ULONG x2, ULONG x3) const {
-    return orderLimit < 3 ? 0 : binomialSums[0][x1] + CombinatiorialGenerator::getQuadIdx(8*byteWidth-1-x1, x2-x1-1, x3-x1-1);
+    return orderLimit < 3 ? 0 : binomialSums[2][x1] + CombinatiorialGenerator::getQuadIdx(8*byteWidth-1-x1, x2-x1-1, x3-x1-1);
 }
 
 ULONG Approximation::getCombinationIdx(uint order, const ULONG* xs, uint xsOffset, ULONG Noffset, ULONG combOffset) const {
@@ -148,7 +156,7 @@ ULONG Approximation::getCombinationIdx(uint order, const ULONG* xs, uint xsOffse
     
     // This is simple optimization to remove 1 recursion step.
     if (order==3) {
-        const ULONG sum = binomialSums[0][x1+Noffset] - binomialSums[0][Noffset];
+        const ULONG sum = binomialSums[2][x1+Noffset] - binomialSums[2][Noffset];
         return sum + CombinatiorialGenerator::getQuadIdx(
                 8*byteWidth-1-x1-Noffset, 
                 xs[1+xsOffset]-combOffset-x1-1, 
@@ -158,7 +166,7 @@ ULONG Approximation::getCombinationIdx(uint order, const ULONG* xs, uint xsOffse
     // Order 3 and higher.
     // Sum of the previous combinations is shifted due to Noffset.
     // N is reduced thus the binomial sum is shifted (originating point is smaller).
-    return (binomialSums[order-3][x1+Noffset] - binomialSums[order-3][Noffset]) + 
+    return (binomialSums[order-1][x1+Noffset] - binomialSums[order-1][Noffset]) + 
             getCombinationIdx(
             order-1, 
             xs, 
@@ -187,7 +195,6 @@ void Approximation::setPoly2Take(const std::vector<std::string> & map) {
         numPolyActive+=1;
     }
 }
-
 
 void Approximation::work() {    
     // Further pre-computation & initialization.
@@ -708,7 +715,8 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
         key[i/8] |= (rand() % 2) ? (1u << i%8) : 0; 
     }
     cout << "Generated secret key: " << endl;
-    dumpUcharHex(cout, key, cip->getKeyBlockSize());
+    dumpHex(cout, key, cip->getKeyBlockSize());
+    dumpBin(cout, key, cip->getKeyBlockSize());
     
     // Dump how polynomial-take-map looks like.
     cout << " NumVariables=" << numVariables << endl;
@@ -852,6 +860,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     // For now just print out the Grobner basis.
     dumpBasis(numVariables, outputBasis, nb);
     cout << "Basis dimension=" << nb << endl;
+    cout << "Stats: cpu=" << t0 << "; memory=" << env->_memory << "; zone=" << env->_zone << endl;
     
     // TODO: Solve Gb with NTL, GaussJordan to obtain solution for the system.
     // TODO: use linearization trick.
@@ -869,6 +878,10 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     delete[] iBuff;
     delete[] inputBasis;
     delete[] outputBasis;
+}
+
+void Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly) {
+    
 }
 
 void Approximation::dumpFGbPoly(uint numVariables, Dpol poly) {
@@ -923,16 +936,20 @@ void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) {
 
 void Approximation::initFGb(uint numVariables) {
     FGB(enter)(); /* First thing to do : GMP original memory allocators are saved */
-    FGB(init_urgent)(2,MAPLE_FGB_BIGNNI,"DRLDRL",100000,0); /* meaning of the second parameter:
-                                                               2 is the number of bytes of each coefficients 
-                                                               so the maximal prime is 65521<2^16
-                                                               1 is the number of bytes of each exponent : 
-                                                               it means that each exponent should be < 128 */
-    FGB(init)(1,1,0,log_output); /* do not change */
+    
+    // Do not change the following parameters (change will cause runtime error):
+    //   2 is the number of bytes of each coefficients so the
+    //     maximal prime is < 2^16
+    //   2 is the number of bytes of each exponent:
+    //     it means that each exponent should be < 2^15
+    FGB(init_urgent)(2,MAPLE_FGB_BIGNNI,"DRLDRL",FGb_MAXI_BASE,0);
+    
+    FGB(init)(1,1,0,fgbFile); /* do not change */
     {
       UI32 pr[]={(UI32)(2)}; /* We compute in GF(2)[x1,x2,...,x_{8*byteWidth}] */
       FGB(reset_coeffs)(1,pr);
     }
+    
     {
       FGB(reset_expos)(numVariables,0,varNames);  /* Define the monomial ordering: DRL(k1,k2) where 
                                     k1 is the size of the 1st block of variables 
@@ -1142,6 +1159,7 @@ extern "C" {
 
     void FGb_checkInterrupt()
     {
+        
     }
 
     void FGb_int_checkInterrupt()

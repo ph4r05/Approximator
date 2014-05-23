@@ -79,7 +79,7 @@ private:
     ULONG inputWidthUlong;
     
     // Array of binomial sums for computing combination index in the lexicographic ordering.
-    // The first array element corresponds to the order 3, next to the order 4 and so on...
+    // The first array element corresponds to the order 1, next to the order 2 and so on...
     ULONG ** binomialSums;
     
     // Number of threads to use for parallelized computation.
@@ -95,6 +95,8 @@ private:
     ULONG * poly2take;
     // Hamming weight of the poly2take.
     uint numPolyActive;
+    // Log file for FGb library.
+    FILE * fgbFile;
     
 public:
     Approximation(uint orderLimit);
@@ -136,6 +138,16 @@ public:
      * @return 
      */
     ULONG getCombinationIdx(uint order, const ULONG * xs, uint xsOffset=0, ULONG Noffset=0, ULONG combOffset=0) const;
+    
+    /**
+     * Computes combination ulong number.
+     * Benefit: reversible...
+     * 
+     * @param order
+     * @param xs
+     * @return 
+     */
+    ULONG getCombinationULong(uint order, const ULONG * xs);
     
     /**
      * Evaluates function determined by coefficients 
@@ -193,6 +205,8 @@ public:
      Procedure for solving equation for keys with using GB.
      */
     void solveKeyGrobner(uint samples, bool dumpInputBase=false);
+    
+    void solveGb(uint numVariables, Dpol * basis, uint numPoly);
     
     /**
      * Generated FGb polynomial representation.
