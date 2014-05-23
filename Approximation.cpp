@@ -117,7 +117,7 @@ void Approximation::init() {
     varNames = new char * [8*byteWidth];
     for(uint var=0; var<8*byteWidth; var++){
         varNames[var] = new char[10];
-        snprintf(varNames[var], 10, "x%d", var);
+        snprintf(varNames[var], 10, "x_%03d", var);
     }
     
     // Init polynomial-to-take bitmap.
@@ -340,11 +340,15 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
     uchar * outputPol = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
     ULONG * hits   = new ULONG[8*cip->getOutputBlockSize()];
+    ULONG * iBuff = new ULONG[this->inputWidthUlong];   // Input ULONG buffer
+    ULONG * variablesValueMask = new ULONG[this->inputWidthUlong];
     const ULONG genLimit = numSamples;
+    uint matchErrors=0;
     
     // Seed (primitive).
     srand((unsigned)time(0)); 
     memset(hits, 0, sizeof(ULONG)*8*cip->getOutputBlockSize());
+    memset(variablesValueMask, 0xff, sizeof(ULONG)*this->inputWidthUlong);
     
     // Generate messages and keys, evaluate it both on cipher and polynomials.
     ProgressMonitor pm(0.01);
@@ -357,7 +361,12 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
         uint randOrder = 1 + (rand() % orderLimit);
         for(uint k=0; k<randOrder; k++){
             const uint randIdx = rand() % (8*byteWidth);
-            input[(randIdx/8) % byteWidth] |= ULONG1 << (randIdx%8);
+            input[(randIdx/8)] |= ULONG1 << (randIdx%8);
+        }
+        
+        memset(iBuff, 0, SIZEOF_ULONG * this->inputWidthUlong);
+        for(uint x = 0; x < byteWidth; x++){
+            iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
         }
         
         // Evaluate cipher.
@@ -369,6 +378,28 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
         // Compute statistics - number of hits for individual polynomial.
         for(uint p=0; p<8*cip->getOutputBlockSize(); p++){
             hits[p] += (outputCip[p/8] & (ULONG1 << (p%8))) == (outputPol[p/8] & (ULONG1 << (p%8)));
+        }
+        
+        // Test partial evaluation for correctness, has to be in match with full evaluation.
+        std::vector<ULONG> coeffEval[MAX_ORDER];
+        coeffEval[0].assign(this->inputWidthUlong, 0ul);
+        this->partialEvaluation(this->byteWidth*8, variablesValueMask, iBuff, coeffEval);
+        
+        // Check result of partial evaluation w.r.t. full evaluation. Has to match!
+        bool partEvalError=false;
+        for(uint x = 0; x < cip->getOutputBlockSize()*8; x++){
+            const bool bitFullEval = ((outputPol[x/8] & (ULONG1 << (x%8))) > 0);
+            const bool bitPartEval = (((coeffEval[0][x/(8*SIZEOF_ULONG)]) & (ULONG1 << (x % (8*SIZEOF_ULONG)))) > 0);
+            if (bitFullEval != bitPartEval){
+                partEvalError=true;
+            }
+        }
+        
+        if (partEvalError){
+            matchErrors+=1;
+            //cout << " Error in evaluation!" << endl;
+            //dumpBin(cout, coeffEval[0], this->outputWidthUlong);
+            //dumpBin(cout, outputPol, cip->getOutputBlockSize());
         }
         
         // Progress monitoring.
@@ -397,11 +428,20 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
         }
     }
     
+    cout << "Matching test:      ";
+    if (matchErrors==0){
+        cout << " [  OK  ]" << endl;
+    } else {
+        cout << " [  FAIL  ]   numFails=" << matchErrors << endl;   
+    }
+    
     // Free the memory.
     delete[] hits;
     delete[] outputCip;
     delete[] outputPol;
     delete[] input;
+    delete[] iBuff;
+    delete[] variablesValueMask;
     return success;
 }
 
@@ -998,10 +1038,10 @@ int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMa
             ULONG newTermIdx = getCombinationIdx(torder, newTerm, 0, 8*byteWidth-numVariables);
             
             // Debugging code:
-            // cout << " termOrder="<<torder<<"; from term order="<<order<<";  original term=";
-            // dumpUlongHex(cout, oldCg.getCurState(), order);
-            // cout << "  new=";
-            // dumpUlongHex(cout, newTerm, torder);
+            //cout << " termOrder="<<torder<<"; from term order="<<order<<";  original term=";
+            //dumpHex(cout, oldCg.getCurState(), order);
+            //cout << "  new=";
+            //dumpHex(cout, newTerm, torder);
             
             // After partial evaluation term has coefficient 1 and can be present
             // in polynomials under this input.
@@ -1090,7 +1130,7 @@ extern "C" {
 
     void FGb_int_error_Maple(const char* s)
     {
-      fprintf(stderr,"%s",s);
+      fprintf(stderr,"Error: %s",s);
       fflush(stderr);
       exit(3);
     }
