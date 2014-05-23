@@ -90,6 +90,7 @@ Approximation::~Approximation() {
 void Approximation::setCipher(ICipher* cip) {
     this->cip = cip;
     this->byteWidth = cip->getInputBlockSize() + cip->getKeyBlockSize();
+    this->logBitInputWidth = ceil(log2(this->byteWidth*8));
     this->outputWidthUlong = OWN_CEIL((double)cip->getOutputBlockSize() / (double)SIZEOF_ULONG);
     this->inputWidthUlong  = OWN_CEIL((double)byteWidth / (double)SIZEOF_ULONG);
 }
@@ -174,6 +175,56 @@ ULONG Approximation::getCombinationIdx(uint order, const ULONG* xs, uint xsOffse
             Noffset+1+x1, 
             combOffset+1+x1
            );
+}
+
+int Approximation::getCombinationFromIdx(uint order, ULONG* xs, ULONG idx) {    
+    int nOffset=0;
+    for(int x=order-1; x>=1; x--){
+        int i=8*byteWidth-1-nOffset;
+        for(; i>=0; i--){
+            const ULONG biSum = (binomialSums[x][i+nOffset] - binomialSums[x][nOffset]);
+            // If current index is bigger than the current sum, the previous sum
+            // helps us to determine index of the order.
+            if (idx >= biSum){
+                break;
+            }
+        }
+
+        idx-=(binomialSums[x][i+nOffset] - binomialSums[x][nOffset]);
+        
+        xs[order-x-1] = i+nOffset;
+        nOffset = xs[order-x-1]+1;
+    }
+    
+    // Final element is already determined.
+    xs[order-1] = idx + nOffset;
+    return 1;
+}
+
+ULONG Approximation::getCombinationULong(uint order, const ULONG* xs) {
+    assert(order <= 0xf);
+    ULONG res = order & 0xf;
+    
+    uint offset = 4;  // order.
+    for(uint x=0; x<order; x++){
+        res |= xs[x] << offset;
+        offset += logBitInputWidth;
+    }
+    
+    return res;
+}
+
+int Approximation::getCombinationFromULong(ULONG* xs, ULONG combUlong) {
+    uint order = combUlong & 0x7;
+    assert(order <= MAX_ORDER);
+    
+    combUlong = combUlong >> 4; // remove order.
+    for(uint x=0; x<order; x++){
+        xs[x] = combUlong & ((1u << logBitInputWidth)-1);
+        combUlong = combUlong >> logBitInputWidth;
+    }
+    
+    return 1;
 }
 
 bool Approximation::isPoly2Take(uint polyIdx) const {
@@ -672,7 +723,52 @@ int Approximation::selftestIndexing() {
         cout << endl;
     }
     
-    cout << "Test completed" << endl;
+    // Randomized test of the combination indexing inversion.
+    const uint testTarget = 10000;
+    cout << "Testing indexing inversion" << endl << " ";
+    ProgressMonitor pm(0.01);
+    for(uint x=0; x<testTarget; x++){
+        // Randomize order selection
+        uint order2test = (rand() % orderLimit) + 1;
+        ULONG comb[MAX_ORDER];
+        ULONG combx[MAX_ORDER];
+        
+        comb[0] = rand() % (bitWidth-order2test);
+        for(uint i=1; i<order2test; i++){
+            const int mod = bitWidth-order2test-comb[i-1]-1;
+            if (mod==0){
+                comb[i] = comb[i-1]+1;
+            } else {
+                comb[i] = comb[i-1]+1+(rand() % mod);
+            }
+        }
+        
+        ULONG idx = getCombinationIdx(order2test, comb);
+        getCombinationFromIdx(order2test, combx, idx);
+        ULONG idx2 = getCombinationIdx(order2test, combx);
+        
+        if (idx!=idx2){
+            cout << " Problem in combination order=" << order2test << "; idx=" << idx << endl;
+            dumpHex(cout, comb, order2test);
+            dumpHex(cout, combx, order2test);
+        }
+        
+        // Test Ulong inversion
+        idx = getCombinationULong(order2test, comb);
+        getCombinationFromULong(combx, idx);
+        idx2 = getCombinationULong(order2test, combx);
+        
+        if (idx!=idx2){
+            cout << " Problem in combination order=" << order2test << "; uidx=" << idx << endl;
+            dumpHex(cout, comb, order2test);
+            dumpHex(cout, combx, order2test);
+        }
+        
+        pm.setCur((double)x / (double)testTarget);
+    }
+    pm.setCur(1.0);
+    
+    cout << endl << "Test completed" << endl;
     return 0;
 }
 

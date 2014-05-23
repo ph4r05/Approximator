@@ -72,6 +72,9 @@ private:
     // Key block size + message block size.
     ULONG byteWidth;
     
+    // Number of bits needed to store the 
+    uint logBitInputWidth;
+    
     // Size of the output block of the cipher in ulong types.
     ULONG outputWidthUlong;
     
@@ -140,14 +143,42 @@ public:
     ULONG getCombinationIdx(uint order, const ULONG * xs, uint xsOffset=0, ULONG Noffset=0, ULONG combOffset=0) const;
     
     /**
-     * Computes combination ulong number.
-     * Benefit: reversible...
+     * Determines combination from its index.
+     * O(order*numvariables)
+     * 
+     * @param input
+     * @param output
+     * @param iBuff
+     * @param oBuff
+     * @return 
+     */
+    int getCombinationFromIdx(uint order, ULONG * xs, ULONG idx);
+    
+    /**
+     * Computes combination ULONG number. 
+     * Generated numbers are not continuous (not space effective)!
+     * Format:
+     *  4bits to store order (number of elements to choose)
+     *  1. element
+     *  2. element
+     *  ...
+     * 
+     * Benefit: Easily reversible.
      * 
      * @param order
      * @param xs
      * @return 
      */
     ULONG getCombinationULong(uint order, const ULONG * xs);
+    
+    /**
+     * Determines combination from its ULONG index.
+     * 
+     * @param xs    Buffer the combination will be stored in. Has to be big enough to store the whole combination.
+     * @param comb  Combination ULONG number.
+     * @return 
+     */
+    int getCombinationFromULong(ULONG * xs, ULONG combUlong);
     
     /**
      * Evaluates function determined by coefficients 
