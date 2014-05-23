@@ -28,6 +28,7 @@
 #include "faugere/fgb.h"
 // NTL library.
 #include <NTL/vec_vec_GF2.h>
+#include <NTL/vec_GF2.h>
 
 class Approximation {
 private:
@@ -163,6 +164,7 @@ public:
      *  2. element
      *  ...
      * 
+     * Warning: This format can store only small order!
      * Benefit: Easily reversible.
      * 
      * @param order
@@ -237,7 +239,7 @@ public:
      */
     void solveKeyGrobner(uint samples, bool dumpInputBase=false);
     
-    void solveGb(uint numVariables, Dpol * basis, uint numPoly);
+    int solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey);
     
     /**
      * Generated FGb polynomial representation.

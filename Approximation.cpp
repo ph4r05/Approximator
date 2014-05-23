@@ -22,6 +22,8 @@
 #include <ctime> 
 #include <cassert>
 #include <unistd.h>
+#include <NTL/mat_GF2.h>
+#include "NTLUtils.h"
 
 // The following macro should be 1 to call FGb modulo a prime number.
 #define LIBMODE 1  
@@ -29,7 +31,9 @@
 #include "call_fgb.h"
 #define FGb_MAXI_BASE 100000
 
+NTL_CLIENT
 using namespace std;
+using namespace NTL;
 
 Approximation::Approximation(uint orderLimit) : cip(NULL), finput(NULL), 
         ulongInp(NULL), ulongOut(NULL), dumpCoefsToFile(false), 
@@ -777,6 +781,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
     uchar * key    = new uchar[cip->getKeyBlockSize()];
+    uchar * keySol = new uchar[cip->getKeyBlockSize()];
     const uint numPolynomials = numPolyActive;
     const uint numVariables = cip->getKeyBlockSize()*8-keybitsToZero;
     
@@ -962,12 +967,24 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     // TODO: use linearization trick.
     // TODO: use http://icm.mcs.kent.edu/reports/1995/gb.pdf to solve the system.
     
-    
+    cout << " [+] Going to solve GB" << endl;
+    int haveSol = solveGb(numVariables, outputBasis, nb, keySol);
+    if (haveSol >= 0){
+        double hits = 0.0;
+        double hitRatio;
+        for(uint i=0; i<numVariables; i++){
+            hits += ((key[i/8] & (1u << (i%8))) > 0) == ((keySol[i/8] & (1u << (i%8))) > 0);
+        }
+        
+        hitRatio = hits / (double)numVariables;
+        cout << "Key bit-hit ratio: " << hitRatio << endl;
+    }
     }
 
     deinitFGb();
     
     delete[] key;
+    delete[] keySol;
     delete[] input;
     delete[] outputCip;
     delete[] variablesValueMask;
@@ -976,8 +993,91 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     delete[] outputBasis;
 }
 
-void Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly) {
+int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey) {
+    if (numVariables != numPoly){
+        cout << " Cannot solve (under-determined) system with " << numVariables << " and " << numPoly << " equations right now right now" << endl;
+        return -1;
+    }
     
+    // TODO: Use linearization trick, now do not use it.
+    // In order to solve the system, we need to separate constant terms from the
+    // system of equation to a side vector b
+    vec_GF2 b(INIT_SIZE, numPoly);
+    
+    // TODO: in linearization trick, it is needed to substitute complex terms 
+    // with a new linear variable. We have to count the nonspecific terms
+    // and assign an unique linear representation to each of them.
+    // Thus size of the matrix is known only AFTER this process of linearization.
+    mat_GF2 systm(INIT_SIZE, numPoly, numVariables);
+    
+    // Add polynomial to the systm matrix, constant term to the b vector.
+    for(uint polyIdx = 0; polyIdx < numPoly; polyIdx++){
+        const I32 nb_mons = FGB(nb_terms)(basis[polyIdx]);  // Number of Monomials.
+        I32* Mons = new I32[numVariables * nb_mons];        // Exponents for variables in terms.
+        I32* Cfs = new I32[nb_mons];                        // Coefficients for terms.
+        FGB(export_poly)(numVariables, nb_mons, Mons, Cfs, basis[polyIdx]);
+        I32 j;
+        for (j = 0; j < nb_mons; j++) {
+            UI32 k, is_one = 1;
+            I32* ei = Mons + j*numVariables;
+
+            // In GF(2) all non-zero coefficients are 1.
+            // But check for null anyway.
+            if (Cfs[j]==0) {
+                continue;
+            }
+            
+            for (k = 0; k < numVariables; k++){
+                // Exponent of the variable k in the term j.
+                if (ei[k]==0) continue;
+                
+                // Coping with the exponents that should not be here - XOR
+                if (IsZero(systm.get(polyIdx, k))){
+                    systm.put(polyIdx, k, 1ul);
+                } else {
+                    systm.put(polyIdx, k, 0ul);
+                }
+                
+                is_one = 0;
+            }
+            
+            // Constant term, should be only 1 in the polynomial.
+            if (is_one) {
+                b.put(polyIdx, 1ul);
+            }
+        }
+
+        delete[] Mons;
+        delete[] Cfs;
+    }
+    
+    //dumpVector(b);
+    //dumpMatrix(systm);
+    
+    // Try to solve the system
+    GF2 determinant;
+    vec_GF2 solution;
+    
+    solve(determinant, solution, systm, b);
+    if (IsZero(determinant)){
+        cout << "Determinant is zero, cannot solve this sytem." << endl;
+        return -2;
+    }
+    
+    // We have solution, convert it to the uchar array and dump in hexa and in the binary.
+    const uint solByteSize = (uint)ceil(numVariables/8.0);
+    memset(solvedKey, 0x0, solByteSize);
+    
+    for(uint i=0; i<numVariables; i++){
+        if (IsOne(solution.get(i))){
+            solvedKey[i/8] |= 1u << (i%8);
+        }
+    }
+    
+    cout << "We have the solution:" << endl;
+    dumpHex(cout, solvedKey, solByteSize);
+    dumpBin(cout, solvedKey, solByteSize);
+    return 1;
 }
 
 void Approximation::dumpFGbPoly(uint numVariables, Dpol poly) {

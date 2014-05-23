@@ -59,6 +59,8 @@
     <itemPath>CombinatiorialGenerator.h</itemPath>
     <itemPath>ICipher.cpp</itemPath>
     <itemPath>ICipher.h</itemPath>
+    <itemPath>NTLUtils.cpp</itemPath>
+    <itemPath>NTLUtils.h</itemPath>
     <itemPath>base.cpp</itemPath>
     <itemPath>base.h</itemPath>
   </logicalFolder>
@@ -83,7 +85,7 @@
             <pElem>faugere/int</pElem>
             <pElem>faugere/protocol</pElem>
           </incDir>
-          <commandLine>-lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
+          <commandLine>-lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl</commandLine>
           <warningLevel>2</warningLevel>
         </ccTool>
         <linkerTool>
@@ -100,6 +102,7 @@
             <linkerLibLibItem>minpolyvgf</linkerLibLibItem>
             <linkerOptionItem>`pkg-config --libs libcrypto`</linkerOptionItem>
           </linkerLibItems>
+          <commandLine>-lntl</commandLine>
         </linkerTool>
       </compileType>
       <item path="AESCipher.cpp" ex="false" tool="1" flavor2="0">
@@ -117,6 +120,10 @@
       <item path="ICipher.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="ICipher.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="NTLUtils.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="NTLUtils.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="ProgressMonitor.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -176,7 +183,7 @@
             <pElem>faugere/int</pElem>
             <pElem>faugere/protocol</pElem>
           </incDir>
-          <commandLine>-lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp</commandLine>
+          <commandLine>-lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl</commandLine>
         </ccTool>
         <fortranCompilerTool>
           <developmentMode>5</developmentMode>
@@ -198,6 +205,7 @@
             <linkerLibLibItem>minpolyvgf</linkerLibLibItem>
             <linkerOptionItem>`pkg-config --libs libcrypto`</linkerOptionItem>
           </linkerLibItems>
+          <commandLine>-lntl</commandLine>
         </linkerTool>
       </compileType>
       <item path="AESCipher.cpp" ex="false" tool="1" flavor2="0">
@@ -215,6 +223,10 @@
       <item path="ICipher.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="ICipher.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="NTLUtils.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="NTLUtils.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="ProgressMonitor.cpp" ex="false" tool="1" flavor2="0">
       </item>

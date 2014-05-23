@@ -39,6 +39,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/Approximation.o \
 	${OBJECTDIR}/CombinatiorialGenerator.o \
 	${OBJECTDIR}/ICipher.o \
+	${OBJECTDIR}/NTLUtils.o \
 	${OBJECTDIR}/ProgressMonitor.o \
 	${OBJECTDIR}/base.o \
 	${OBJECTDIR}/main.o
@@ -48,8 +49,8 @@ OBJECTFILES= \
 CFLAGS=
 
 # CC Compiler Flags
-CCFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp
-CXXFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp
+CCFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl
+CXXFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl
 
 # Fortran Compiler Flags
 FFLAGS=
@@ -66,7 +67,7 @@ LDLIBSOPTIONS=-Lfaugere/x64 -lm -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyv
 
 ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation: ${OBJECTFILES}
 	${MKDIR} -p ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}
-	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation ${OBJECTFILES} ${LDLIBSOPTIONS}
+	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation ${OBJECTFILES} ${LDLIBSOPTIONS} -lntl
 
 ${OBJECTDIR}/AESCipher.o: AESCipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}
@@ -87,6 +88,11 @@ ${OBJECTDIR}/ICipher.o: ICipher.cpp
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.cc) -g -Wall -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
+
+${OBJECTDIR}/NTLUtils.o: NTLUtils.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -g -Wall -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/NTLUtils.o NTLUtils.cpp
 
 ${OBJECTDIR}/ProgressMonitor.o: ProgressMonitor.cpp 
 	${MKDIR} -p ${OBJECTDIR}
