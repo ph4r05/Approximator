@@ -145,7 +145,7 @@ public:
      * @param oBuff
      * @return 
      */
-    int getCombinationFromIdx(uint order, ULONG * xs, ULONG idx);
+    int getCombinationFromIdx(uint order, ULONG * xs, ULONG idx) const;
     
     /**
      * Computes combination ULONG number. 
@@ -163,7 +163,7 @@ public:
      * @param xs
      * @return 
      */
-    ULONG getCombinationULong(uint order, const ULONG * xs);
+    ULONG getCombinationULong(uint order, const ULONG * xs) const;
     
     /**
      * Determines combination from its ULONG index.
@@ -172,7 +172,7 @@ public:
      * @param comb  Combination ULONG number.
      * @return 
      */
-    int getCombinationFromULong(ULONG * xs, ULONG combUlong);
+    int getCombinationFromULong(ULONG * xs, ULONG combUlong) const;
     
     /**
      * Evaluates function determined by coefficients 
@@ -196,14 +196,14 @@ public:
      * @param coeffEval             Storage provided by the caller to store the new function in.
      * @return 
      */
-    int partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval);
+    int partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) const;
     
     /**
      * Tests polynomial approximation of the cipher.
      * Pre-computed coefficients are used.
      * @return 
      */
-    int testPolynomialApproximation(unsigned long numSamples);
+    int testPolynomialApproximation(unsigned long numSamples) const;
     
     /**
      * Performs self test on determined coefficient values.
@@ -212,26 +212,26 @@ public:
      * 
      * @return 
      */
-    int selftestApproximation(unsigned long numSamples);
+    int selftestApproximation(unsigned long numSamples) const;
     
     /**
      * Simple test for combination indexing correctness.
      */
-    int selftestIndexing();
+    int selftestIndexing() const;
     
     /**
      * Computes maximal number of terms the polynomial with given number
      * of variables and with the defined maximal order can have.
      * @return 
      */
-    ULONG numberOfTerms(ULONG variables, ULONG maxOrder);
+    ULONG numberOfTerms(ULONG variables, ULONG maxOrder) const;
     
     /**
      Procedure for solving equation for keys with using GB.
      */
-    void solveKeyGrobner(uint samples, bool dumpInputBase=false);
+    void solveKeyGrobner(uint samples, bool dumpInputBase=false) const;
     
-    int solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey);
+    int solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey) const;
     
     /**
      * Generated FGb polynomial representation.
@@ -241,30 +241,30 @@ public:
      * @param polyIdx   Which polynomial to represent.
      * @param numTerms [OPTIONAL] If non-null, it will contain number of terms in the polynomial.
      */
-    Dpol_INT polynomial2FGb(uint numVariables, std::vector<ULONG> * coefs, uint maxOrder, uint polyIdx, ULONG * numTerms);
+    Dpol_INT polynomial2FGb(uint numVariables, std::vector<ULONG> * coefs, uint maxOrder, uint polyIdx, ULONG * numTerms) const;
     
     /**
      * Dumps FGb polynomial to the standard output.
      * @param numVariables
      * @param poly
      */
-    void dumpFGbPoly(uint numVariables, Dpol poly);
+    void dumpFGbPoly(uint numVariables, Dpol poly) const;
     
     /**
      * Dumps polynomial basis.
      */
-    void dumpBasis(uint numVariables, Dpol * basis, uint numPoly);
+    void dumpBasis(uint numVariables, Dpol * basis, uint numPoly) const;
     
     /**
      * Initializes FGb library.
      * @param numVariables
      */
-    void initFGb(uint numVariables);
+    void initFGb(uint numVariables) const;
     
     /**
      * Deinitializes FGb library.
      */
-    void deinitFGb();
+    void deinitFGb() const;
     
     /**
      * Reads 8-bit buffer to the 64 bit buffer.

@@ -164,7 +164,7 @@ ULONG Approximation::getCombinationIdx(uint order, const ULONG* xs, uint xsOffse
            );
 }
 
-int Approximation::getCombinationFromIdx(uint order, ULONG* xs, ULONG idx) {    
+int Approximation::getCombinationFromIdx(uint order, ULONG* xs, ULONG idx) const {    
     int nOffset=0;
     for(int x=order-1; x>=1; x--){
         int i=8*byteWidth-1-nOffset;
@@ -188,7 +188,7 @@ int Approximation::getCombinationFromIdx(uint order, ULONG* xs, ULONG idx) {
     return 1;
 }
 
-ULONG Approximation::getCombinationULong(uint order, const ULONG* xs) {
+ULONG Approximation::getCombinationULong(uint order, const ULONG* xs) const {
     assert(order <= 0xf);
     ULONG res = order & 0xf;
     
@@ -201,7 +201,7 @@ ULONG Approximation::getCombinationULong(uint order, const ULONG* xs) {
     return res;
 }
 
-int Approximation::getCombinationFromULong(ULONG* xs, ULONG combUlong) {
+int Approximation::getCombinationFromULong(ULONG* xs, ULONG combUlong) const {
     uint order = combUlong & 0x7;
     assert(order <= MAX_ORDER);
     
@@ -383,7 +383,7 @@ void Approximation::computeCoefficients() {
     delete[] finput;
 }
 
-int Approximation::selftestApproximation(unsigned long numSamples) {
+int Approximation::selftestApproximation(unsigned long numSamples) const {
 // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * outputPol = new uchar[cip->getOutputBlockSize()];
@@ -495,7 +495,7 @@ int Approximation::selftestApproximation(unsigned long numSamples) {
     return success;
 }
 
-int Approximation::testPolynomialApproximation(unsigned long numSamples) {
+int Approximation::testPolynomialApproximation(unsigned long numSamples) const {
     // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * outputPol = new uchar[cip->getOutputBlockSize()];
@@ -653,7 +653,7 @@ void Approximation::genMessages() {
     delete[] output;
 }
 
-ULONG Approximation::numberOfTerms(ULONG variables, ULONG maxOrder) {
+ULONG Approximation::numberOfTerms(ULONG variables, ULONG maxOrder) const {
     ULONG res = 0;
     for(ULONG ord=0; ord<=maxOrder; ord++){
         res += CombinatiorialGenerator::binomial(variables, ord);
@@ -662,7 +662,7 @@ ULONG Approximation::numberOfTerms(ULONG variables, ULONG maxOrder) {
     return res;
 }
 
-int Approximation::selftestIndexing() {
+int Approximation::selftestIndexing() const {
     const uint bitWidth = 8*this->byteWidth;
     
     // Test quadratic indexing equations.
@@ -775,7 +775,7 @@ int Approximation::selftestIndexing() {
     return 0;
 }
 
-void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
+void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
     // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
@@ -992,7 +992,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) {
     delete[] outputBasis;
 }
 
-int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey) {
+int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey) const {
     if (numVariables != numPoly){
         cout << " Cannot solve (under-determined) system with " << numVariables << " and " << numPoly << " equations right now right now" << endl;
         return -1;
@@ -1079,7 +1079,7 @@ int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar *
     return 1;
 }
 
-void Approximation::dumpFGbPoly(uint numVariables, Dpol poly) {
+void Approximation::dumpFGbPoly(uint numVariables, Dpol poly) const {
     // Import the internal representation of each polynomial computed by FGb.
     const I32 nb_mons = FGB(nb_terms)(poly);        // Number of Monomials.
     I32* Mons = new I32[numVariables * nb_mons];    // (UI32*) (malloc(sizeof (UI32) * numVariables * nb_mons));
@@ -1114,7 +1114,7 @@ void Approximation::dumpFGbPoly(uint numVariables, Dpol poly) {
     delete[] Cfs;
 }
 
-void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) {
+void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) const {
     cout << "[ len=" << numPoly << endl;
     for (uint i = 0; i < numPoly; i++) {
         // Use this fuction to print the result.
@@ -1129,7 +1129,7 @@ void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) {
     cout << "]" << endl;
 }
 
-void Approximation::initFGb(uint numVariables) {
+void Approximation::initFGb(uint numVariables) const {
     FGB(enter)(); /* First thing to do : GMP original memory allocators are saved */
     
     // Do not change the following parameters (change will cause runtime error):
@@ -1154,12 +1154,12 @@ void Approximation::initFGb(uint numVariables) {
     }
 }
 
-void Approximation::deinitFGb() {
+void Approximation::deinitFGb() const {
     FGB(reset_memory)(); /* to reset Memory */
     FGB(exit)(); /* restore original GMP allocators */
 }
 
-int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) {
+int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) const{
     assert(numVariables <= 8*byteWidth);
     ULONG * newTerm = new ULONG[orderLimit+1];
     for(uint order = 0; order <= orderLimit; order++){
@@ -1254,7 +1254,7 @@ int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMa
     return 0;
 }
 
-Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs, uint maxOrder, uint polyIdx, ULONG * numTerms) {
+Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs, uint maxOrder, uint polyIdx, ULONG * numTerms) const {
     ULONG termsEnabled = 0;
     Dpol_INT prev;
     I32 * termRepresentation = new I32[numVariables];
