@@ -89,9 +89,8 @@ void Approximation::init() {
     assert(orderLimit>=0 && orderLimit<MAX_ORDER);
     assert(SIZEOF_ULONG == sizeof(ULONG));
     
-    // Pre-compute cube binomial coefficients
-    // Allocating & computing binomial sums for term coefficients.
-    if (orderLimit >= 3){
+    // Pre-compute binomial sums for combination index computation.
+    if (orderLimit >= 1){
         binomialSums = new ULONG * [orderLimit];
         for(uint order = 1; order <= orderLimit; order++){
             const uint idx = order-1;
@@ -117,10 +116,6 @@ void Approximation::init() {
     poly2take = new ULONG[outputWidthUlong];
     numPolyActive = 8*cip->getOutputBlockSize();
     memset(poly2take, 0xff, SIZEOF_ULONG * outputWidthUlong);
-    
-//    ulongOut = new ULONG[outputWidthUlong];
-//    ulongInp = new ULONG[inputWidthUlong];
-//    finput   = new uchar[byteWidth];
     
     // Open logfile for library
     fgbFile = fopen("fgb.log", "a+");
@@ -238,26 +233,12 @@ uint Approximation::getNumVariables() const {
     return cip->getKeyBlockSize()*8-keybitsToZero;
 }
 
-
-void Approximation::work() {    
-    // Further pre-computation & initialization.
-    init();
-    
-//    // Dump polynomials to the files, one file per polynomial.
-//    ofstream ** coefs = new ofstream*[8 * cip->getOutputBlockSize()];
-//    for(unsigned int i = 0; i < 8 * cip->getOutputBlockSize(); i++){
-//        coefs[i] = new ofstream(std::string("poly_") + std::to_string(i) + ".txt");
-//    }
-    
-    // Compute coefficients.
-    cout << "Computing polynomial coefficients, orderLimit=" << orderLimit << endl << " ";
-    computeCoefficients(); 
-}
-
 void Approximation::computeCoefficients() {
     ULONG * ulongOut = new ULONG[outputWidthUlong];
     ULONG * ulongInp = new ULONG[inputWidthUlong];
     uchar * finput   = new uchar[byteWidth];
+    CombinatiorialGenerator ** cgenerators = new CombinatiorialGenerator * [orderLimit];
+    ULONG * tmpCombination = new ULONG[orderLimit+1];
     
     // Allocating space for the coefficients.
     for(unsigned int order = 0; order<=orderLimit; order++){
@@ -282,11 +263,17 @@ void Approximation::computeCoefficients() {
         coefficients[0][i/SIZEOF_ULONG] = READ_TERM_1(coefficients[0][i/SIZEOF_ULONG], output[i], i%SIZEOF_ULONG);
     }
     
-    // Generate order1 .. order3 cipher data
-    for(unsigned order=1; order<=orderLimit; order++){
+    // Find polynomial terms coefficient for order 1..orderLimit.
+    for(uint order=1; order<=orderLimit; order++){
         CombinatiorialGenerator cg(byteWidth*8, order);
-        CombinatiorialGenerator cgQuadratic(order > 2 ? order : 2, 2);
-        CombinatiorialGenerator cgCubic(order > 3 ? order : 3, 3);
+        
+        // Combinatorial generators for computing XOR indices.
+        for(uint i=0; (i+2) < order; i++){
+            cgenerators[i] = new CombinatiorialGenerator(order, i+2);
+        }
+        
+        //CombinatiorialGenerator cgQuadratic(order > 2 ? order : 2, 2);
+        //CombinatiorialGenerator cgCubic(order > 3 ? order : 3, 3);
         
         cout << "Starting with order: " 
                 << order 
@@ -306,7 +293,7 @@ void Approximation::computeCoefficients() {
         for(; cg.next(); ){
             const uchar * input = cg.getCurCombination();
             
-            // Evaluate cipher on current combinations.
+            // Evaluate cipher on current combination.
             cip->evaluate(input, input + cip->getInputBlockSize(), output);
             
             // Transform output to the ULONG array
@@ -336,31 +323,35 @@ void Approximation::computeCoefficients() {
                     curValue ^= coefficients[1][outputWidthUlong*cg.getCurState()[ti] + ulongCtr];
                 }
                 
-                // 3. XOR all quadratic terms, if applicable.
-                // Using combinations generator to generate all quadratic terms 
-                // that are possible to construct using variables present in current term;
-                if (order>2 && orderLimit>=2){
-                    for(cgQuadratic.reset(); cgQuadratic.next(); ){
-                        ULONG idx = CombinatiorialGenerator::getQuadIdx(
-                                8*byteWidth, 
-                                cg.getCurState()[cgQuadratic.getCurState()[0]],  // first var. idx. in quadr. term. 
-                                cg.getCurState()[cgQuadratic.getCurState()[1]]); // second var. idx. in quadr. term.
+                // 3. XOR all quadratic, cubic, quartic, etc.. terms if applicable.
+                // In order to determine current term coefficient all lower terms
+                // that can be obtained from this one has to be taken into account.
+                // and XORed into the result.
+                for(uint xorOrder=2; xorOrder<order && order<=orderLimit; xorOrder++){
+                    
+                    // Obtain a shortcut reference to the combinatorial generator
+                    // for this xorOrder. This generator is used to generate 
+                    // combinations of variables from to original term to construct
+                    // a lower term.
+                    CombinatiorialGenerator * const xorOrderGen = cgenerators[xorOrder-2];
+                    
+                    // Iterate over all possible variable combinations to the new 
+                    // resulting term of a lower order.
+                    for(xorOrderGen->reset(); xorOrderGen->next(); ){
                         
-                        curValue ^= coefficients[2][outputWidthUlong*idx + ulongCtr];
-                    }
-                }
-                
-                // 4. XOR all cubic terms, if applicable.
-                // Using combinations generator to generate all cubic terms 
-                // that are possible to construct using variables present in current term;
-                if (order>3 && orderLimit>=3){
-                    for(cgCubic.reset(); cgCubic.next(); ){
-                        ULONG idx = getCubeIdx(
-                                cg.getCurState()[cgCubic.getCurState()[0]],  // first var. idx. in quadr. term. 
-                                cg.getCurState()[cgCubic.getCurState()[1]],  // second var. idx. in quadr. term.
-                                cg.getCurState()[cgCubic.getCurState()[2]]); // third var. idx. in quadr. term.
+                        // Construct xorOrder term representation for term
+                        // index computation.
+                        for(uint tmpCombCtr = 0; tmpCombCtr<xorOrder; tmpCombCtr++){
+                            tmpCombination[tmpCombCtr] = cg.getCurState()[xorOrderGen->getCurState()[tmpCombCtr]];
+                        }
                         
-                        curValue ^= coefficients[3][outputWidthUlong*idx + ulongCtr];
+                        // Term index computation.
+                        ULONG idx = getCombinationIdx(xorOrder, tmpCombination);
+                        
+                        // XOR current result register with coefficient register.
+                        // If low order term is present in the approximation function,
+                        // it has to be taken into account.
+                        curValue ^= coefficients[xorOrder][outputWidthUlong*idx + ulongCtr];
                     }
                 }
                 
@@ -380,12 +371,19 @@ void Approximation::computeCoefficients() {
         pm.setCur(1.0);
         
         cout << endl;
+        
+        // Combinatorial generators destruction.
+        for(uint i=0; i < order; i++){
+            delete cgenerators[i];
+        }
     }
     
+    delete[] tmpCombination;
     delete[] ulongInp;
     delete[] ulongOut;
     delete[] output;  
     delete[] finput;
+    delete[] cgenerators;
 }
 
 int Approximation::selftestApproximation(unsigned long numSamples) const {
@@ -713,9 +711,7 @@ int Approximation::selftestIndexing() const {
         ProgressMonitor pm(0.01);
         const ULONG total = cg.getTotalNum();
         for(; cg.next(); ){
-            const ULONG ctr     = cg.getCounter();
-            if (ctr<0x7d80) continue;
-            
+            const ULONG ctr     = cg.getCounter();            
             const ULONG * state = cg.getCurState();
             const ULONG ctrComputed = getCombinationIdx(order, state);
             if (ctrComputed != ctr){

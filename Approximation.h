@@ -99,11 +99,6 @@ public:
     virtual ~Approximation();
     
     /**
-     * Entry point.
-     */
-    void work();
-    
-    /**
      * Computes coefficients for polynomial approximation.
      * Init has to be called before this function.
      * Memory for coefficient is allocated in this step.
