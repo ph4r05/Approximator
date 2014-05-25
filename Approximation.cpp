@@ -790,6 +790,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
     
     // Bit-mask of variables for which we have a valid value.
     ULONG * variablesValueMask = new ULONG[this->inputWidthUlong];
+    memset(variablesValueMask, 0x0, sizeof(ULONG) * inputWidthUlong);
     // Set plaintext bits to 1 --> they will be evaluated.
     for(uint i=0; i<8*cip->getInputBlockSize(); i++){
         variablesValueMask[i/(8*SIZEOF_ULONG)] |= ULONG1 << (i % (8*SIZEOF_ULONG));
@@ -959,6 +960,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
 
     // For now just print out the Grobner basis.
     dumpBasis(numVariables, outputBasis, nb);
+    cout << "Input basis dimension=" << n_input << endl;
     cout << "Basis dimension=" << nb << endl;
     cout << "Stats: cpu=" << t0 << "; memory=" << env->_memory << "; zone=" << env->_zone << endl;
     
