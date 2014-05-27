@@ -225,7 +225,7 @@ public:
      Procedure for solving equation for keys with using GB.
      * FGb has to be initialized before and deinitialized after calling this method!
      */
-    void solveKeyGrobner(uint samples, bool dumpInputBase=false) const;
+    void solveKeyGrobner(uint samples, bool dumpInputBase=false, bool selfTest=false) const;
     
     int solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey) const;
     
@@ -236,8 +236,9 @@ public:
      * @param maxOrder  Maximal order of the terms stored in coefs.
      * @param polyIdx   Which polynomial to represent.
      * @param numTerms [OPTIONAL] If non-null, it will contain number of terms in the polynomial.
+     * @param hash [OPTIONAL] If non-null, hash of the polynomial will be computed and set here.
      */
-    Dpol_INT polynomial2FGb(uint numVariables, std::vector<ULONG> * coefs, uint maxOrder, uint polyIdx, ULONG * numTerms) const;
+    Dpol_INT polynomial2FGb(uint numVariables, std::vector<ULONG> * coefs, uint maxOrder, uint polyIdx, ULONG * numTerms = NULL, ULONG * hash = NULL) const;
     
     /**
      * Dumps FGb polynomial to the standard output.

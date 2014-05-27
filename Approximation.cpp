@@ -23,7 +23,10 @@
 #include <cassert>
 #include <unistd.h>
 #include <NTL/mat_GF2.h>
+#include <openssl/md5.h>
 #include "NTLUtils.h"
+#include <boost/unordered_map.hpp>
+
 
 // The following macro should be 1 to call FGb modulo a prime number.
 #define LIBMODE 1  
@@ -776,7 +779,7 @@ int Approximation::selftestIndexing() const {
     return 0;
 }
 
-void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
+void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfTest) const {
     // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
@@ -804,6 +807,8 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
     
     // Input ULONG buffer
     ULONG * iBuff = new ULONG[this->inputWidthUlong];
+    ULONG * iTmpBuff = new ULONG[this->inputWidthUlong];
+    ULONG * oTmpBuff = new ULONG[this->outputWidthUlong];
     
     // FGb polynomials. We have here specific number of polynomials.
     Dpol * inputBasis  = new Dpol[samples*numPolynomials];
@@ -816,6 +821,12 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
     for(uint i=keybitsToZero; i<8*cip->getKeyBlockSize(); i++){ 
         key[i/8] |= (rand() % 2) ? (1u << i%8) : 0; 
     }
+    
+    // Copy key to the input field for selftest.
+    for(uint i=0; i<cip->getKeyBlockSize(); i++){
+        input[i+cip->getInputBlockSize()] = key[i];
+    }
+    
     cout << "Generated secret key: " << endl;
     dumpHex(cout, key, cip->getKeyBlockSize());
     dumpBin(cout, key, cip->getKeyBlockSize());
@@ -827,6 +838,9 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
     cout << " Expected basis size=" << dec << (samples*numPolynomials) << endl;
     cout << " Variables to evaluate mask="; 
     dumpHex(cout, variablesValueMask, this->inputWidthUlong);
+    if (selfTest){
+        cout << " Self-testing of the solveGb()" << endl;
+    }
     
     // Whether to show some information during sample computation or not...
     bool interSampleOutput = samples < 4;
@@ -834,6 +848,9 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
     // Init FGb library.
     int step0=-1;
     int bk0=0;
+    
+    // Polynomial hashes
+    boost::unordered_map<ULONG, uint> polynomialHashes;
   
     // Generate tons of random messages.
     ProgressMonitor pmSample(0.01);
@@ -846,16 +863,22 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
         // Fix plaintext variables to the generated ones. 
         // Now we obtain system of equations with key variables.
         // 128 equations with (128-keybitsToZero) unknown bits.
-        for(unsigned int i=0; i<cip->getInputBlockSize(); i++){ 
-            input[i] = (rand() % (0xffu+1)); 
+        for(uint i=0; i<cip->getInputBlockSize(); i++){ 
+            input[i] = (rand() % 0x100); 
         }
-        
-        // Evaluate cipher.
-        cip->evaluate(input, key, outputCip);       
         
         // Input variables, only masked are taken into consideration during partial evaluation.
         this->readUcharToUlong(input, cip->getInputBlockSize(), iBuff);
         this->readUcharToUlong(key,   cip->getKeyBlockSize(),   iBuff + OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG));
+        
+        // Evaluation.
+        if (selfTest){
+            // If we are using self test, evaluate this on the approximation function.
+            this->evaluateCoefficients(input, outputCip, iTmpBuff, oTmpBuff);
+        } else {
+            // Evaluate cipher.
+            cip->evaluate(input, key, outputCip);       
+        }
         
         // New function is stored in another coefficient array.
         // Allocate space for the coefficients.
@@ -876,6 +899,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
         partialEvaluation(numVariables, variablesValueMask, iBuff, coeffEval);
         
         // Add ciphertext values to the polynomials to obtain system of equations.
+        // For particular input message.
         for(uint x=0; x<cip->getOutputBlockSize(); x++){
             coeffEval[0][x/SIZEOF_ULONG] ^= ((ULONG)outputCip[x])<<(8 * (x % SIZEOF_ULONG));
         }
@@ -895,8 +919,15 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
             
             // Convert out internal polynomial representation to FGb representation.
             ULONG numTerms = 0;
-            inputBasis[sample*numPolynomials + polyCtr] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms);
+            ULONG hash = 0;
+            inputBasis[sample*numPolynomials + polyCtr] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms, &hash);
             numTermsSum += numTerms;
+            
+            if (polynomialHashes.count(hash)>0){
+                cout << "Polynomial with idx=" << (sample*numPolynomials + polyCtr) << " is already present in the basis, idx=" << polynomialHashes[hash] << "; hash=" << hex << hash << endl;
+            } else {
+                polynomialHashes.insert(std::pair<ULONG,uint>(hash, sample*numPolynomials + polyCtr));
+            }
             
             if (interSampleOutput){
                 pmBasis.setCur((double)poly / double(numPolynomials));
@@ -988,6 +1019,8 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase) const {
     delete[] outputCip;
     delete[] variablesValueMask;
     delete[] iBuff;
+    delete[] iTmpBuff;
+    delete[] oTmpBuff;
     delete[] inputBasis;
     delete[] outputBasis;
 }
@@ -1120,7 +1153,7 @@ void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) cons
         // Use this fuction to print the result.
         // FGB(see_Dpol)(outputBasis[i]);
         
-        cout << setw(4) << setfill('0') << right << i << ": ";
+        cout << "* " << dec << setw(4) << setfill('0') << right << i << ": ";
         dumpFGbPoly(numVariables, basis[i]);
         if (i < (numPoly - 1)) {
             cout << endl;
@@ -1259,10 +1292,11 @@ int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMa
     return 0;
 }
 
-Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs, uint maxOrder, uint polyIdx, ULONG * numTerms) const {
+Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs, uint maxOrder, uint polyIdx, ULONG * numTerms, ULONG * hash) const {
     ULONG termsEnabled = 0;
     Dpol_INT prev;
     I32 * termRepresentation = new I32[numVariables];
+    MD5_CTX md5Ctx;
     
     // Has to determine exact number of enabled terms in the polynomial.
     const uint coefSegment = polyIdx / (SIZEOF_ULONG * 8);
@@ -1275,6 +1309,11 @@ Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* co
         }
     }
     
+    if (hash!=NULL){
+        MD5_Init(&md5Ctx);
+        MD5_Update(&md5Ctx, &termsEnabled, SIZEOF_ULONG);
+    }
+    
     // Create an empty polynomial with specified number of terms. 
     prev=FGB(creat_poly)(termsEnabled);
     
@@ -1285,6 +1324,11 @@ Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* co
         for(; cg.next() && termCounter < termsEnabled; ){
             const ULONG ctr = cg.getCounter();
             if ((coefs[order][outputWidthUlong*ctr+coefSegment] & (ULONG1<<(coefOffset))) == 0) continue;
+            
+            // Update hash value if we want to compute it. 
+            if (hash!=NULL){
+                MD5_Update(&md5Ctx, &ctr, SIZEOF_ULONG);
+            }
             
             // Coefficient is present, set term variables to representation.
             const ULONG * state = cg.getCurState();
@@ -1301,7 +1345,19 @@ Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* co
             
             termCounter+=1;
         }
-    }  
+    }
+    
+    // Final hash computation
+    if (hash!=NULL){
+        ULONG hash1, hash2;
+        uchar md[MD5_DIGEST_LENGTH];
+        
+        MD5_Final(md, &md5Ctx);
+        readUcharToUlong(md,              SIZEOF_ULONG, &hash1);
+        readUcharToUlong(md+SIZEOF_ULONG, SIZEOF_ULONG, &hash2);
+        
+        *hash = hash1 ^ hash2;
+    }
     
     // Sorting for GB, has to be done and is very slowly...
     FGB(full_sort_poly2)(prev);
