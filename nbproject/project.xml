@@ -11,6 +11,7 @@
             <make-dep-projects/>
             <sourceRootList>
                 <sourceRootElem>faugere</sourceRootElem>
+                <sourceRootElem>ciphers</sourceRootElem>
             </sourceRootList>
             <confList>
                 <confElem>

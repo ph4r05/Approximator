@@ -7,13 +7,14 @@
 
 #include <string.h>
 
+#include "aes.h"
 #include "AESCipher.h"
 
-AESCipher::AESCipher() {
+AESCipher::AESCipher() : rounds(-1) {
     
 }
 
-AESCipher::AESCipher(const AESCipher& orig) {
+AESCipher::AESCipher(const AESCipher& orig) : rounds(orig.rounds) {
     
 }
 
@@ -31,9 +32,14 @@ int AESCipher::evaluate(const unsigned char* input, unsigned char* output) {
 }
 
 int AESCipher::evaluate(const unsigned char* input, const unsigned char* key, unsigned char* output) {
-    AES_KEY enc_key;
-    AES_set_encrypt_key(key, getKeyBlockSize()*8, &enc_key);
-    AES_encrypt(input, output, &enc_key);
-    return 1;
+   unsigned int key_schedule[60];
+   
+   // Generate enc key.
+   KeyExpansion(key,key_schedule, 128);
+   
+   // Encrypt.
+   aes_encrypt(input, output, key_schedule, 128, this->rounds);
+   
+   return 1;
 }
 

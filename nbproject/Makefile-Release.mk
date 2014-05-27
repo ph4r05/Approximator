@@ -36,12 +36,14 @@ OBJECTDIR=${CND_BUILDDIR}/${CND_CONF}/${CND_PLATFORM}
 # Object Files
 OBJECTFILES= \
 	${OBJECTDIR}/AESCipher.o \
+	${OBJECTDIR}/AESCipherOpenSSL.o \
 	${OBJECTDIR}/Approximation.o \
 	${OBJECTDIR}/CombinatiorialGenerator.o \
 	${OBJECTDIR}/ICipher.o \
 	${OBJECTDIR}/NTLUtils.o \
 	${OBJECTDIR}/ProgressMonitor.o \
 	${OBJECTDIR}/base.o \
+	${OBJECTDIR}/ciphers/aes.o \
 	${OBJECTDIR}/main.o
 
 
@@ -74,6 +76,11 @@ ${OBJECTDIR}/AESCipher.o: AESCipher.cpp
 	${RM} "$@.d"
 	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipher.o AESCipher.cpp
 
+${OBJECTDIR}/AESCipherOpenSSL.o: AESCipherOpenSSL.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipherOpenSSL.o AESCipherOpenSSL.cpp
+
 ${OBJECTDIR}/Approximation.o: Approximation.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
@@ -103,6 +110,11 @@ ${OBJECTDIR}/base.o: base.cpp
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/base.o base.cpp
+
+${OBJECTDIR}/ciphers/aes.o: ciphers/aes.cpp 
+	${MKDIR} -p ${OBJECTDIR}/ciphers
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ciphers/aes.o ciphers/aes.cpp
 
 ${OBJECTDIR}/main.o: main.cpp 
 	${MKDIR} -p ${OBJECTDIR}
