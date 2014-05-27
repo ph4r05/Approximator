@@ -779,7 +779,7 @@ int Approximation::selftestIndexing() const {
     return 0;
 }
 
-void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfTest) const {
+void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfTest, int basisReduction) const {
     // Allocate input & key buffers
     uchar * outputCip = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
@@ -811,9 +811,12 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     ULONG * oTmpBuff = new ULONG[this->outputWidthUlong];
     
     // FGb polynomials. We have here specific number of polynomials.
-    Dpol * inputBasis  = new Dpol[samples*numPolynomials];
+    Dpol * inputBasis1  = new Dpol[samples*numPolynomials];
+    Dpol * inputBasis2 = new Dpol[samples*numPolynomials];
+    Dpol * inputBasis = inputBasis1;
     Dpol * outputBasis = new Dpol[FGb_MAXI_BASE];
-    memset(inputBasis, 0, sizeof(Dpol_INT) * samples * numPolynomials);
+    memset(inputBasis1, 0, sizeof(Dpol_INT) * samples * numPolynomials);
+    memset(inputBasis2, 0, sizeof(Dpol_INT) * samples * numPolynomials);
     
     // Generate key at random, once for the cipher.
     // From now it will behave as a black-box and we assume key is unknown to us.
@@ -823,6 +826,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     }
     
     // Copy key to the input field for selftest.
+    memset(input, 0, byteWidth);
     for(uint i=0; i<cip->getKeyBlockSize(); i++){
         input[i+cip->getInputBlockSize()] = key[i];
     }
@@ -851,6 +855,9 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     
     // Polynomial hashes
     boost::unordered_map<ULONG, uint> polynomialHashes;
+    
+    // Input basis size.
+    uint inputBasisSize=0;
   
     // Generate tons of random messages.
     ProgressMonitor pmSample(0.01);
@@ -863,7 +870,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
         // Fix plaintext variables to the generated ones. 
         // Now we obtain system of equations with key variables.
         // 128 equations with (128-keybitsToZero) unknown bits.
-        for(uint i=0; i<cip->getInputBlockSize(); i++){ 
+        for(uint i=0; samples > 1 && i<cip->getInputBlockSize(); i++){ 
             input[i] = (rand() % 0x100); 
         }
         
@@ -911,7 +918,8 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
         
         ProgressMonitor pmBasis(0.01);
         ULONG numTermsSum=0;
-        for(uint poly=0, polyCtr=0; poly<numPolynomials; poly++){
+        uint polyCtr=0;
+        for(uint poly=0; poly<numPolynomials; poly++){
             // If this polynomial is not selected, do not add it in the input base.
             if (isPoly2Take(poly)==false){
                 continue;
@@ -920,34 +928,62 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
             // Convert out internal polynomial representation to FGb representation.
             ULONG numTerms = 0;
             ULONG hash = 0;
-            inputBasis[sample*numPolynomials + polyCtr] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms, &hash);
+            uint curPolyIdx = sample*numPolynomials + polyCtr;
+            inputBasis1[curPolyIdx] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms, &hash);
             numTermsSum += numTerms;
             
-            if (polynomialHashes.count(hash)>0){
-                cout << "Polynomial with idx=" << (sample*numPolynomials + polyCtr) << " is already present in the basis, idx=" << polynomialHashes[hash] << "; hash=" << hex << hash << endl;
-            } else {
-                polynomialHashes.insert(std::pair<ULONG,uint>(hash, sample*numPolynomials + polyCtr));
+            // If zero terms, it is null, do not add it to the base since 
+            // it does not increase basis dimension.
+            if (numTerms==0){
+                continue;
             }
             
+            // Polynomial duplicity check, do not add duplicates to the input base.
+            // Since it does not increase basis dimension.
+            if (polynomialHashes.count(hash)>0){
+                //cout << "Polynomial with idx=" << (curPolyIdx) << " is already present in the basis, idx=" << polynomialHashes[hash] << "; hash=" << hex << hash << endl;
+                continue;
+            } else {
+                polynomialHashes.insert(std::pair<ULONG,uint>(hash, curPolyIdx));
+            }
+            
+            // Polynomial is unique. Add to the basis.
             if (interSampleOutput){
+                //cout << setw(4) << right << curPolyIdx << " is f_" << poly << endl;
                 pmBasis.setCur((double)poly / double(numPolynomials));
             }
             
             polyCtr+=1;
         }
+        
+        // Update complete basis size.
+        inputBasisSize+=polyCtr;
+        
+        // If verbose mode, finish progress bar & write average number of terms in polynomials.
         if (interSampleOutput){
             pmBasis.setCur(1.0);
-        }
-        
-        
-        if (interSampleOutput){
             cout << "; Number of terms on average: " << ((double)numTermsSum / (double)numPolynomials) << endl;
-        }
-        
-        // If there is no intersample output, show a general progress bar.
-        if (!interSampleOutput){
+        } else {
+            // If there is no intersample output, show a general progress bar.
             pmSample.setCur((double)sample / (double)samples);
         }
+    }
+    
+    // Hack: we don't want over determined system for now, take last
+    // numVariables equations to the input base.
+    if (basisReduction > 0 && inputBasisSize > numVariables){
+        for(uint i=0; i<numVariables; i++){
+            inputBasis2[i] = inputBasis1[inputBasisSize-1-i];
+        }
+        
+        cout << " Number of equations reduced to " << numVariables << endl;
+        if (dumpInputBase){
+            cout << " Original basis, size=" << inputBasisSize << endl;
+            dumpBasis(numVariables, inputBasis1, inputBasisSize);
+        } 
+        
+        inputBasisSize = numVariables;
+        inputBasis = inputBasis2;
     }
     
     // Only if general progressbar is shown.
@@ -958,15 +994,15 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     
     // Print out input basis
     if (dumpInputBase){
-        cout << " Input basis: " << endl;
-        dumpBasis(numVariables, inputBasis, samples*numPolynomials);
+        cout << " Input basis, size=" << inputBasisSize << endl;
+        dumpBasis(numVariables, inputBasis, inputBasisSize);
     }
     
     // Compute Gb.
     {
     int nb;
     double t0;
-    const int n_input=samples*numPolynomials; /* we have X polynomials on input */
+    const int n_input=inputBasisSize; /* we have X polynomials on input */
     struct sFGB_Comp_Desc Env;
     FGB_Comp_Desc env=&Env;
     env->_compute=FGB_COMPUTE_GBASIS; /* The following function can be used to compute Gb, NormalForms, RR, ... 
@@ -976,7 +1012,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
                            (need to define a monomial ordering DRL(k1,k2) with k2>0 ) */
     env->_off=0;       /* should be 0 for modulo p computation	*/
 
-    env->_index=700000; /* This is is the maximal size of the matrices generated by F4 
+    env->_index=900000; /* This is is the maximal size of the matrices generated by F4 
                           you can increase this value according to your memory */
     env->_zone=0;    /* should be 0 */
     env->_memory=0;  /* should be 0 */
@@ -993,9 +1029,9 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     dumpBasis(numVariables, outputBasis, nb);
     cout << "Input basis dimension=" << n_input << endl;
     cout << "Basis dimension=" << nb << endl;
+    cout << "Number of variables=" << numVariables << endl;
     cout << "Stats: cpu=" << t0 << "; memory=" << env->_memory << "; zone=" << env->_zone << endl;
     
-    // TODO: Solve Gb with NTL, GaussJordan to obtain solution for the system.
     // TODO: use linearization trick.
     // TODO: use http://icm.mcs.kent.edu/reports/1995/gb.pdf to solve the system.
     
@@ -1005,7 +1041,10 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
         double hits = 0.0;
         double hitRatio;
         for(uint i=0; i<numVariables; i++){
-            hits += ((key[i/8] & (1u << (i%8))) > 0) == ((keySol[i/8] & (1u << (i%8))) > 0);
+            // If number of variables is reduced, take this into account
+            // for precise key bit hit ratio (real key is shifted).
+            const uint keyIdx = 8*cip->getKeyBlockSize() - numVariables + i;
+            hits += ((key[keyIdx/8] & (1u << (keyIdx%8))) > 0) == ((keySol[i/8] & (1u << (i%8))) > 0);
         }
         
         hitRatio = hits / (double)numVariables;
@@ -1021,13 +1060,28 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     delete[] iBuff;
     delete[] iTmpBuff;
     delete[] oTmpBuff;
-    delete[] inputBasis;
+    delete[] inputBasis1;
+    delete[] inputBasis2;
     delete[] outputBasis;
 }
 
 int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey) const {
-    if (numVariables != numPoly){
-        cout << " Cannot solve (under-determined) system with " << numVariables << " and " << numPoly << " equations right now right now" << endl;
+    // Detect if system has no solution.
+    // This happens if Gb = <1>.
+    if (numPoly==1){
+        const I32 nb_mons = FGB(nb_terms)(basis[0]);
+        if (nb_mons==1){
+            cout << "   System has only 1 variable, 1 term. Probably Gb=<1> what means there is no solution. NumVariables=" << numVariables << endl;
+            return -2;
+        }
+        
+        cout << "   System has only 1 equation. Cannot solve such under-determined system. NumVariables=" << numVariables << endl;
+        return -3;
+    }
+    
+    // If system is too under-determined, do not solve it. 
+    if (numVariables > (numPoly+4)){
+        cout << "   Cannot solve (under-determined) system with " << numVariables << " and " << numPoly << " equations right now right now" << endl;
         return -1;
     }
     
@@ -1092,8 +1146,8 @@ int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar *
     
     solve(determinant, solution, systm, b);
     if (IsZero(determinant)){
-        cout << "Determinant is zero, cannot solve this sytem." << endl;
-        return -2;
+        cout << "   Determinant is zero, cannot solve this sytem." << endl;
+        return -4;
     }
     
     // We have solution, convert it to the uchar array and dump in hexa and in the binary.
@@ -1106,7 +1160,7 @@ int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar *
         }
     }
     
-    cout << "We have the solution:" << endl;
+    cout << "   We have the solution:" << endl;
     dumpHex(cout, solvedKey, solByteSize);
     dumpBin(cout, solvedKey, solByteSize);
     return 1;
@@ -1153,7 +1207,7 @@ void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) cons
         // Use this fuction to print the result.
         // FGB(see_Dpol)(outputBasis[i]);
         
-        cout << "* " << dec << setw(4) << setfill('0') << right << i << ": ";
+        cout << "# " << dec << setw(4) << setfill('0') << right << i << ": ";
         dumpFGbPoly(numVariables, basis[i]);
         if (i < (numPoly - 1)) {
             cout << endl;

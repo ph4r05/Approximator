@@ -225,7 +225,7 @@ public:
      Procedure for solving equation for keys with using GB.
      * FGb has to be initialized before and deinitialized after calling this method!
      */
-    void solveKeyGrobner(uint samples, bool dumpInputBase=false, bool selfTest=false) const;
+    void solveKeyGrobner(uint samples, bool dumpInputBase=false, bool selfTest=false, int basisReduction=0) const;
     
     int solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey) const;
     

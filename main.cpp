@@ -39,6 +39,7 @@ int main(int argc, char** argv) {
             ("samples,s",      po::value<uint>()->default_value(1)->implicit_value(1),  "Number of samples to try.")
             ("dump-input",     po::value<bool>()->default_value(false)->implicit_value(false), "Whether to dump input base to GB.")
             ("self-test",      po::value<bool>()->default_value(false)->implicit_value(false), "Self-testing during normal computation.")
+            ("basis-reduction",po::value<uint>()->default_value(0)->implicit_value(0), "Reduce over-determined systems to exactly determined.")
             ("rounds,r",       po::value<int>()->default_value(-1)->implicit_value(-1), "Number of rounds of the cipher.")
 //            ("out-file,o",     po::value<std::string>(),                                       "Output file to write encrypted data")
 //            ("input-files",    po::value<std::vector<std::string>>(),                          "Input files")
@@ -122,7 +123,7 @@ int main(int argc, char** argv) {
         
         cout << "Solving key equations with GB" << endl;
         ap.initFGb(ap.getNumVariables());
-        ap.solveKeyGrobner(vm["samples"].as<uint>(), vm["dump-input"].as<bool>(), selftest);
+        ap.solveKeyGrobner(vm["samples"].as<uint>(), vm["dump-input"].as<bool>(), selftest, vm["basis-reduction"].as<uint>()); 
         ap.deinitFGb();
     }
     
