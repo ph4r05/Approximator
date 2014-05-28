@@ -102,7 +102,7 @@ public:
      * Init has to be called before this function.
      * Memory for coefficient is allocated in this step.
      */
-    void computeCoefficients();
+    void computeCoefficients(std::vector<ULONG> * coefficients);
     
     /**
      * Initialization of the internal pre-computed tables.
@@ -117,7 +117,8 @@ public:
      * @param oBuff  output ULONG buffer to use (has to be allocated to exact size)
      * @return 
      */
-    int evaluateCoefficients(const unsigned char * input, unsigned char * output, ULONG * iBuff, ULONG * oBuff) const;
+    int evaluateCoefficients(const std::vector<ULONG> * coefficients,
+        const unsigned char * input, unsigned char * output, ULONG * iBuff, ULONG * oBuff) const;
     
     /**
      * Partially evaluates approximated function on a given input.
@@ -131,7 +132,8 @@ public:
      * @param coeffEval             Storage provided by the caller to store the new function in.
      * @return 
      */
-    int partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) const;
+    int partialEvaluation(const std::vector<ULONG> * coefficients,
+        uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) const;
     
     /**
      * Tests polynomial approximation of the cipher.
@@ -194,6 +196,8 @@ public:
      */
     uint getNumVariables() const;
     
+    std::vector<ULONG> * getCoefficients() { return coefficients; }
+
     ICipher * getCipher() const { return cip; }
     void      setCipher(ICipher * cip);
     

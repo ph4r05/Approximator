@@ -96,7 +96,7 @@ uint Approximation::getNumVariables() const {
     return cip->getKeyBlockSize()*8-keybitsToZero;
 }
 
-void Approximation::computeCoefficients() {
+void Approximation::computeCoefficients(std::vector<ULONG> * coefficients) {
     ULONG * ulongOut = new ULONG[outputWidthUlong];
     ULONG * ulongInp = new ULONG[inputWidthUlong];
     uchar * finput   = new uchar[byteWidth];
@@ -287,7 +287,7 @@ int Approximation::selftestApproximation(unsigned long numSamples) const {
         cip->evaluate(input, input + cip->getInputBlockSize(), outputCip);
         
         // Evaluate polynomial.
-        this->evaluateCoefficients(input, outputPol, ulongInp, ulongOut);
+        this->evaluateCoefficients(this->coefficients, input, outputPol, ulongInp, ulongOut);
         
         // Compute statistics - number of hits for individual polynomial.
         for(uint p=0; p<8*cip->getOutputBlockSize(); p++){
@@ -297,7 +297,7 @@ int Approximation::selftestApproximation(unsigned long numSamples) const {
         // Test partial evaluation for correctness, has to be in match with full evaluation.
         std::vector<ULONG> coeffEval[MAX_ORDER];
         coeffEval[0].assign(this->inputWidthUlong, 0ul);
-        this->partialEvaluation(this->byteWidth*8, variablesValueMask, iBuff, coeffEval);
+        this->partialEvaluation(this->coefficients, this->byteWidth*8, variablesValueMask, iBuff, coeffEval);
         
         // Check result of partial evaluation w.r.t. full evaluation. Has to match!
         bool partEvalError=false;
@@ -387,7 +387,7 @@ int Approximation::testPolynomialApproximation(unsigned long numSamples) const {
         cip->evaluate(input, input + cip->getInputBlockSize(), outputCip);
         
         // Evaluate polynomial.
-        this->evaluateCoefficients(input, outputPol, ulongInp, ulongOut);
+        this->evaluateCoefficients(this->coefficients, input, outputPol, ulongInp, ulongOut);
         
         //cout << "final: " << endl;
         //dumpUcharHex(cout, outputCip, 16);
@@ -421,7 +421,8 @@ int Approximation::testPolynomialApproximation(unsigned long numSamples) const {
     return 1;
 }
 
-int Approximation::evaluateCoefficients(const unsigned char* input, unsigned char* output, ULONG * iBuff, ULONG * oBuff) const {
+int Approximation::evaluateCoefficients(const std::vector<ULONG> * coefficients,
+        const unsigned char* input, unsigned char* output, ULONG * iBuff, ULONG * oBuff) const {
     // We can assume that approximate half of the coefficients are enabled/present
     // in the resulting polynomial, thus evaluation is based on the iteration of 
     // the combinatorial generator and reading coefficient by coefficient.
@@ -737,7 +738,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
         // Evaluation.
         if (selfTest){
             // If we are using self test, evaluate this on the approximation function.
-            this->evaluateCoefficients(input, outputCip, iTmpBuff, oTmpBuff);
+            this->evaluateCoefficients(this->coefficients, input, outputCip, iTmpBuff, oTmpBuff);
         } else {
             // Evaluate cipher.
             cip->evaluate(input, key, outputCip);       
@@ -759,7 +760,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
         if (interSampleOutput){
             cout << " Going to partially evaluate approximating function." << endl;
         }
-        partialEvaluation(numVariables, variablesValueMask, iBuff, coeffEval);
+        partialEvaluation(this->coefficients, numVariables, variablesValueMask, iBuff, coeffEval);
         
         // Add ciphertext values to the polynomials to obtain system of equations.
         // For particular input message.
@@ -999,7 +1000,9 @@ int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar *
     return 1;
 }
 
-int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) const{
+int Approximation::partialEvaluation(const std::vector<ULONG> * coefficients,
+        uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) const{
+    
     assert(numVariables <= 8*byteWidth);
     ULONG * newTerm = new ULONG[orderLimit+1];
     for(uint order = 0; order <= orderLimit; order++){

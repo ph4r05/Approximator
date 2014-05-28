@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
     }
     
     // Compute coefficients.
-    ap.computeCoefficients();
+    ap.computeCoefficients(ap.getCoefficients());
         
     // Test approximation correctness
     ulong corrSamples = vm["corr"].as<ulong>();
