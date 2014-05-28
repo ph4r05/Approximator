@@ -78,7 +78,7 @@ LDLIBSOPTIONS=-Lfaugere/x64 -lm -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyv
 
 ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation: ${OBJECTFILES}
 	${MKDIR} -p ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}
-	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation ${OBJECTFILES} ${LDLIBSOPTIONS} -lntl
+	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation ${OBJECTFILES} ${LDLIBSOPTIONS} -lgmp -lntl -lboost_program_options
 
 ${OBJECTDIR}/AESCipher.o: AESCipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}
