@@ -124,6 +124,11 @@ Dpol_INT FGbHelper::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs,
     uint termCounter=0;
     for(uint order = 0; order <= orderLimit && termCounter < termsEnabled; order++){
         CombinatiorialGenerator cg(numVariables, order);
+        if (hash!=NULL){
+            MD5_Update(&md5Ctx, &order, sizeof(uint));
+            MD5_Update(&md5Ctx, "<HASH-NEW-ORDER>", sizeof(char));
+        }
+        
         for(; cg.next() && termCounter < termsEnabled; ){
             const ULONG ctr = cg.getCounter();
             if ((coefs[order][outputWidthUlong*ctr+coefSegment] & (ULONG1<<(coefOffset))) == 0) continue;
@@ -131,6 +136,7 @@ Dpol_INT FGbHelper::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs,
             // Update hash value if we want to compute it. 
             if (hash!=NULL){
                 MD5_Update(&md5Ctx, &ctr, SIZEOF_ULONG);
+                MD5_Update(&md5Ctx, "<HASH-NEW-TERM>", sizeof(char));
             }
             
             // Coefficient is present, set term variables to representation.
