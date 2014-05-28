@@ -31,6 +31,7 @@
                    displayName="Header Files"
                    projectFiles="true">
       <itemPath>AESCipherOpenSSL.h</itemPath>
+      <itemPath>CombinatorialIndexer.h</itemPath>
       <itemPath>ProgressMonitor.h</itemPath>
       <itemPath>faugere/aes.h</itemPath>
       <itemPath>faugere/fgb.h</itemPath>
@@ -39,10 +40,43 @@
                    displayName="Resource Files"
                    projectFiles="true">
     </logicalFolder>
+    <logicalFolder name="sha3" displayName="sha3" projectFiles="true">
+      <logicalFolder name="hash_functions"
+                     displayName="hash_functions"
+                     projectFiles="true">
+        <logicalFolder name="BMW" displayName="BMW" projectFiles="true">
+          <itemPath>sha3/hash_functions/BMW/BMW_sha3.cpp</itemPath>
+          <itemPath>sha3/hash_functions/BMW/BMW_sha3.h</itemPath>
+        </logicalFolder>
+        <logicalFolder name="Keccak" displayName="Keccak" projectFiles="true">
+          <itemPath>sha3/hash_functions/Keccak/KeccakDuplex.c</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakDuplex.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-32-rvk.macros</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-32-s1.macros</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-32-s2.macros</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-32.macros</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-int-set.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-interface.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-opt32-settings.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-opt32.c</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-unrolling.macros</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakSponge.c</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/KeccakSponge.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/Keccak_sha3.cpp</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/Keccak_sha3.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak/brg_endian.h</itemPath>
+        </logicalFolder>
+        <itemPath>sha3/hash_functions/hashFunctions.h</itemPath>
+      </logicalFolder>
+      <itemPath>sha3/Sha3Constants.h</itemPath>
+      <itemPath>sha3/Sha3Interface.cpp</itemPath>
+      <itemPath>sha3/Sha3Interface.h</itemPath>
+    </logicalFolder>
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
                    projectFiles="true">
       <itemPath>AESCipherOpenSSL.cpp</itemPath>
+      <itemPath>CombinatorialIndexer.cpp</itemPath>
       <itemPath>ProgressMonitor.cpp</itemPath>
       <itemPath>main.cpp</itemPath>
     </logicalFolder>
@@ -65,14 +99,18 @@
     <itemPath>CombinatiorialGenerator.h</itemPath>
     <itemPath>ICipher.cpp</itemPath>
     <itemPath>ICipher.h</itemPath>
+    <itemPath>Logger.cpp</itemPath>
+    <itemPath>Logger.h</itemPath>
     <itemPath>NTLUtils.cpp</itemPath>
     <itemPath>NTLUtils.h</itemPath>
+    <itemPath>Version.h</itemPath>
     <itemPath>base.cpp</itemPath>
     <itemPath>base.h</itemPath>
   </logicalFolder>
   <sourceRootList>
     <Elem>faugere</Elem>
     <Elem>ciphers</Elem>
+    <Elem>sha3</Elem>
   </sourceRootList>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
@@ -88,6 +126,7 @@
           <standard>8</standard>
           <commandlineTool>g++</commandlineTool>
           <incDir>
+            <pElem>.</pElem>
             <pElem>faugere</pElem>
             <pElem>faugere/int</pElem>
             <pElem>faugere/protocol</pElem>
@@ -128,9 +167,17 @@
       </item>
       <item path="CombinatiorialGenerator.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="CombinatorialIndexer.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="CombinatorialIndexer.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="ICipher.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="ICipher.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="Logger.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="Logger.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="NTLUtils.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -139,6 +186,8 @@
       <item path="ProgressMonitor.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="ProgressMonitor.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="Version.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="base.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -177,6 +226,104 @@
       </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
       </item>
+      <item path="sha3/Sha3Constants.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="sha3/Sha3Interface.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="sha3/Sha3Interface.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/BMW/BMW_sha3.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/BMW/BMW_sha3.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakDuplex.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakDuplex.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-rvk.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-s1.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-s2.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-int-set.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-interface.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-opt32-settings.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-opt32.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-unrolling.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakSponge.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakSponge.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/Keccak_sha3.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/Keccak_sha3.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/brg_endian.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/hashFunctions.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
     </conf>
     <conf name="Release" type="1">
       <toolsSet>
@@ -194,6 +341,7 @@
           <standard>8</standard>
           <commandlineTool>g++</commandlineTool>
           <incDir>
+            <pElem>.</pElem>
             <pElem>faugere</pElem>
             <pElem>faugere/int</pElem>
             <pElem>faugere/protocol</pElem>
@@ -239,9 +387,17 @@
       </item>
       <item path="CombinatiorialGenerator.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="CombinatorialIndexer.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="CombinatorialIndexer.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="ICipher.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="ICipher.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="Logger.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="Logger.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="NTLUtils.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -250,6 +406,8 @@
       <item path="ProgressMonitor.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="ProgressMonitor.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="Version.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="base.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -287,6 +445,104 @@
       <item path="faugere/protocol/style.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="sha3/Sha3Constants.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="sha3/Sha3Interface.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="sha3/Sha3Interface.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/BMW/BMW_sha3.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/BMW/BMW_sha3.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakDuplex.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakDuplex.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-rvk.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-s1.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-s2.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-int-set.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-interface.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-opt32-settings.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-opt32.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakF-1600-unrolling.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakSponge.c"
+            ex="false"
+            tool="0"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/KeccakSponge.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/Keccak_sha3.cpp"
+            ex="false"
+            tool="1"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/Keccak_sha3.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak/brg_endian.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/hashFunctions.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
       </item>
     </conf>
   </confs>

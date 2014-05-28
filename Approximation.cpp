@@ -6,10 +6,6 @@
  * TODO: multithreaded!!!
  * TODO: MPI???
  */
-
-#include "Approximation.h"
-#include "CombinatiorialGenerator.h"
-#include "ProgressMonitor.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -22,11 +18,15 @@
 #include <ctime> 
 #include <cassert>
 #include <unistd.h>
+
 #include <NTL/mat_GF2.h>
 #include <openssl/md5.h>
-#include "NTLUtils.h"
 #include <boost/unordered_map.hpp>
 
+#include "Approximation.h"
+#include "CombinatiorialGenerator.h"
+#include "ProgressMonitor.h"
+#include "NTLUtils.h"
 
 // The following macro should be 1 to call FGb modulo a prime number.
 #define LIBMODE 1  
@@ -39,7 +39,7 @@ using namespace std;
 using namespace NTL;
 
 Approximation::Approximation(uint orderLimit) : cip(NULL), dumpCoefsToFile(false), 
-        outputWidthUlong(0), inputWidthUlong(0), binomialSums(NULL),
+        outputWidthUlong(0), inputWidthUlong(0),
         threadCount(1), varNames(NULL), keybitsToZero(0),
         poly2take(NULL), numPolyActive(0), fgbFile(NULL) {
     
@@ -47,16 +47,6 @@ Approximation::Approximation(uint orderLimit) : cip(NULL), dumpCoefsToFile(false
 }
 
 Approximation::~Approximation() {    
-    if (binomialSums!=NULL){
-        for(uint order = 1; order <= orderLimit; order++){
-            delete[] binomialSums[order-1];
-            binomialSums[order-1]=NULL;
-        }
-        
-        delete[] binomialSums;
-        binomialSums = NULL;
-    }
-    
     if (varNames!=NULL){
         for(uint var = 0; var <= 8*byteWidth; var++){
             delete[] varNames[var];
@@ -92,21 +82,8 @@ void Approximation::init() {
     assert(orderLimit>=0 && orderLimit<MAX_ORDER);
     assert(SIZEOF_ULONG == sizeof(ULONG));
     
-    // Pre-compute binomial sums for combination index computation.
-    if (orderLimit >= 1){
-        binomialSums = new ULONG * [orderLimit];
-        for(uint order = 1; order <= orderLimit; order++){
-            const uint idx = order-1;
-            binomialSums[idx]    = new ULONG[8*byteWidth];
-            binomialSums[idx][0] = 0ul;
-
-            ULONG res = 0;
-            for(uint i = 1; i<8*byteWidth; i++){
-                res += CombinatiorialGenerator::binomial(8*byteWidth-i, order-1);
-                binomialSums[idx][i] = res;
-            }
-        }
-    }
+    // Init combinatorial indexer.
+    combIndexer.init(8*byteWidth, orderLimit);
     
     // Variable names for FGb.
     varNames = new char * [8*byteWidth];
@@ -122,94 +99,6 @@ void Approximation::init() {
     
     // Open logfile for library
     fgbFile = fopen("fgb.log", "a+");
-}
-
-ULONG Approximation::getCubeIdx(ULONG x1, ULONG x2, ULONG x3) const {
-    return orderLimit < 3 ? 0 : binomialSums[2][x1] + CombinatiorialGenerator::getQuadIdx(8*byteWidth-1-x1, x2-x1-1, x3-x1-1);
-}
-
-ULONG Approximation::getCombinationIdx(uint order, const ULONG* xs, uint xsOffset, ULONG Noffset, ULONG combOffset) const {
-    assert(order<=orderLimit);
-    
-    // Small order.
-    if (order==0) return 0;
-    if (order==1) return xs[0+xsOffset] - combOffset;
-    if (order==2) return CombinatiorialGenerator::getQuadIdx(8*byteWidth-Noffset, xs[0+xsOffset]-combOffset, xs[1+xsOffset]-combOffset);
-    
-    // Order 3.
-    // Take recursive parameters into consideration.
-    const ULONG x1 = xs[0+xsOffset] - combOffset;
-    
-    // This is simple optimization to remove 1 recursion step.
-    if (order==3) {
-        const ULONG sum = binomialSums[2][x1+Noffset] - binomialSums[2][Noffset];
-        return sum + CombinatiorialGenerator::getQuadIdx(
-                8*byteWidth-1-x1-Noffset, 
-                xs[1+xsOffset]-combOffset-x1-1, 
-                xs[2+xsOffset]-combOffset-x1-1);
-    }
-    
-    // Order 3 and higher.
-    // Sum of the previous combinations is shifted due to Noffset.
-    // N is reduced thus the binomial sum is shifted (originating point is smaller).
-    return (binomialSums[order-1][x1+Noffset] - binomialSums[order-1][Noffset]) + 
-            getCombinationIdx(
-            order-1, 
-            xs, 
-            xsOffset+1, 
-            Noffset+1+x1, 
-            combOffset+1+x1
-           );
-}
-
-int Approximation::getCombinationFromIdx(uint order, ULONG* xs, ULONG idx) const {    
-    int nOffset=0;
-    for(int x=order-1; x>=1; x--){
-        int i=8*byteWidth-1-nOffset;
-        for(; i>=0; i--){
-            const ULONG biSum = (binomialSums[x][i+nOffset] - binomialSums[x][nOffset]);
-            // If current index is bigger than the current sum, the previous sum
-            // helps us to determine index of the order.
-            if (idx >= biSum){
-                break;
-            }
-        }
-
-        idx-=(binomialSums[x][i+nOffset] - binomialSums[x][nOffset]);
-        
-        xs[order-x-1] = i+nOffset;
-        nOffset = xs[order-x-1]+1;
-    }
-    
-    // Final element is already determined.
-    xs[order-1] = idx + nOffset;
-    return 1;
-}
-
-ULONG Approximation::getCombinationULong(uint order, const ULONG* xs) const {
-    assert(order <= 0xf);
-    ULONG res = order & 0xf;
-    
-    uint offset = 4;  // order.
-    for(uint x=0; x<order; x++){
-        res |= xs[x] << offset;
-        offset += logBitInputWidth;
-    }
-    
-    return res;
-}
-
-int Approximation::getCombinationFromULong(ULONG* xs, ULONG combUlong) const {
-    uint order = combUlong & 0x7;
-    assert(order <= MAX_ORDER);
-    
-    combUlong = combUlong >> 4; // remove order.
-    for(uint x=0; x<order; x++){
-        xs[x] = combUlong & ((1u << logBitInputWidth)-1);
-        combUlong = combUlong >> logBitInputWidth;
-    }
-    
-    return 1;
 }
 
 bool Approximation::isPoly2Take(uint polyIdx) const {
@@ -349,7 +238,7 @@ void Approximation::computeCoefficients() {
                         }
                         
                         // Term index computation.
-                        ULONG idx = getCombinationIdx(xorOrder, tmpCombination);
+                        ULONG idx = combIndexer.getCombinationIdx(xorOrder, tmpCombination);
                         
                         // XOR current result register with coefficient register.
                         // If low order term is present in the approximation function,
@@ -716,7 +605,7 @@ int Approximation::selftestIndexing() const {
         for(; cg.next(); ){
             const ULONG ctr     = cg.getCounter();            
             const ULONG * state = cg.getCurState();
-            const ULONG ctrComputed = getCombinationIdx(order, state);
+            const ULONG ctrComputed = combIndexer.getCombinationIdx(order, state);
             if (ctrComputed != ctr){
                 dumpUlongHex(cerr, state, order);
                 cerr << "Invalid index for order " << order << " ctr=" << ctr << "; computed1: " << ctrComputed << endl;
@@ -750,9 +639,9 @@ int Approximation::selftestIndexing() const {
             }
         }
         
-        ULONG idx = getCombinationIdx(order2test, comb);
-        getCombinationFromIdx(order2test, combx, idx);
-        ULONG idx2 = getCombinationIdx(order2test, combx);
+        ULONG idx = combIndexer.getCombinationIdx(order2test, comb);
+        combIndexer.getCombinationFromIdx(order2test, combx, idx);
+        ULONG idx2 = combIndexer.getCombinationIdx(order2test, combx);
         
         if (idx!=idx2){
             cout << " Problem in combination order=" << order2test << "; idx=" << idx << endl;
@@ -761,9 +650,9 @@ int Approximation::selftestIndexing() const {
         }
         
         // Test Ulong inversion
-        idx = getCombinationULong(order2test, comb);
-        getCombinationFromULong(combx, idx);
-        idx2 = getCombinationULong(order2test, combx);
+        idx = combIndexer.getCombinationULong(order2test, comb);
+        combIndexer.getCombinationFromULong(combx, idx);
+        idx2 = combIndexer.getCombinationULong(order2test, combx);
         
         if (idx!=idx2){
             cout << " Problem in combination order=" << order2test << "; uidx=" << idx << endl;
@@ -848,10 +737,6 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     
     // Whether to show some information during sample computation or not...
     bool interSampleOutput = samples < 4;
-    
-    // Init FGb library.
-    int step0=-1;
-    int bk0=0;
     
     // Polynomial hashes
     boost::unordered_map<ULONG, uint> polynomialHashes;
@@ -999,38 +884,16 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     }
     
     // Compute Gb.
-    {
-    int nb;
-    double t0;
-    const int n_input=inputBasisSize; /* we have X polynomials on input */
-    struct sFGB_Comp_Desc Env;
-    FGB_Comp_Desc env=&Env;
-    env->_compute=FGB_COMPUTE_GBASIS; /* The following function can be used to compute Gb, NormalForms, RR, ... 
-                                         Here we want to compute a Groebner Basis */
-    env->_nb=0; /* parameter is used when computing NormalForms (see an example in bug_prog2.c */
-    env->_force_elim=0; /* if force_elim=1 then return only the result of the elimination 
-                           (need to define a monomial ordering DRL(k1,k2) with k2>0 ) */
-    env->_off=0;       /* should be 0 for modulo p computation	*/
-
-    env->_index=900000; /* This is is the maximal size of the matrices generated by F4 
-                          you can increase this value according to your memory */
-    env->_zone=0;    /* should be 0 */
-    env->_memory=0;  /* should be 0 */
-    /* Other parameters :
-       t0 is the CPU time (reference to a double)
-       bk0 : should be 0 
-       step0 : this is the number primes for the first step
-               if step0<0 then this parameter is automatically set by the library
-     */
-    cout << " [+] Going to compute GB, n_input="<<dec<<n_input<<endl;
-    nb=FGB(groebner)(inputBasis,n_input,outputBasis,1,0,&t0,bk0,step0,0,env);
-
+    cout << " [+] Going to compute GB, n_input="<<dec<<inputBasisSize<<endl;
+    double t0 = 0.0;
+    int nb = computeFGb(inputBasisSize, inputBasis, outputBasis, &t0);
+    
     // For now just print out the Grobner basis.
     dumpBasis(numVariables, outputBasis, nb);
-    cout << "Input basis dimension=" << n_input << endl;
+    cout << "Input basis dimension=" << inputBasisSize << endl;
     cout << "Basis dimension=" << nb << endl;
     cout << "Number of variables=" << numVariables << endl;
-    cout << "Stats: cpu=" << t0 << "; memory=" << env->_memory << "; zone=" << env->_zone << endl;
+    cout << "Stats: cpu=" << t0 << endl;
     
     // TODO: use linearization trick.
     // TODO: use http://icm.mcs.kent.edu/reports/1995/gb.pdf to solve the system.
@@ -1049,7 +912,6 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
         
         hitRatio = hits / (double)numVariables;
         cout << "Key bit-hit ratio: " << hitRatio << endl;
-    }
     }
     
     delete[] key;
@@ -1250,6 +1112,32 @@ void Approximation::resetFGb() const {
     FGB(reset_memory)(); /* to reset Memory */
 }
 
+int Approximation::computeFGb(int n_input, Dpol* inputBasis, Dpol* outputBasis, double* t0) const {
+    int step0=-1;
+    int bk0=0;
+    int nb;
+    struct sFGB_Comp_Desc Env;
+    FGB_Comp_Desc env=&Env;
+    env->_compute=FGB_COMPUTE_GBASIS; /* The following function can be used to compute Gb, NormalForms, RR, ... 
+                                         Here we want to compute a Groebner Basis */
+    env->_nb=0; /* parameter is used when computing NormalForms (see an example in bug_prog2.c */
+    env->_force_elim=0; /* if force_elim=1 then return only the result of the elimination 
+                           (need to define a monomial ordering DRL(k1,k2) with k2>0 ) */
+    env->_off=0;       /* should be 0 for modulo p computation	*/
+
+    env->_index=900000; /* This is is the maximal size of the matrices generated by F4 
+                          you can increase this value according to your memory */
+    env->_zone=0;    /* should be 0 */
+    env->_memory=0;  /* should be 0 */
+    /* Other parameters :
+       t0 is the CPU time (reference to a double)
+       bk0 : should be 0 
+       step0 : this is the number primes for the first step
+               if step0<0 then this parameter is automatically set by the library
+     */
+    nb=FGB(groebner)(inputBasis,n_input,outputBasis,1,0,t0,bk0,step0,0,env);
+    return nb;
+}
 
 int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) const{
     assert(numVariables <= 8*byteWidth);
@@ -1324,7 +1212,7 @@ int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMa
             
             // Compute index of this term and toggle it in the low function.
             // Number of variables is reduced, thus set the offset on the number combinations.
-            ULONG newTermIdx = getCombinationIdx(torder, newTerm, 0, 8*byteWidth-numVariables);
+            ULONG newTermIdx = combIndexer.getCombinationIdx(torder, newTerm, 0, 8*byteWidth-numVariables);
             
             // Debugging code:
             //cout << " termOrder="<<torder<<"; from term order="<<order<<";  original term=";

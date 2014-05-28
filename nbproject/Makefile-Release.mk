@@ -39,12 +39,20 @@ OBJECTFILES= \
 	${OBJECTDIR}/AESCipherOpenSSL.o \
 	${OBJECTDIR}/Approximation.o \
 	${OBJECTDIR}/CombinatiorialGenerator.o \
+	${OBJECTDIR}/CombinatorialIndexer.o \
 	${OBJECTDIR}/ICipher.o \
+	${OBJECTDIR}/Logger.o \
 	${OBJECTDIR}/NTLUtils.o \
 	${OBJECTDIR}/ProgressMonitor.o \
 	${OBJECTDIR}/base.o \
 	${OBJECTDIR}/ciphers/aes.o \
-	${OBJECTDIR}/main.o
+	${OBJECTDIR}/main.o \
+	${OBJECTDIR}/sha3/Sha3Interface.o \
+	${OBJECTDIR}/sha3/hash_functions/BMW/BMW_sha3.o \
+	${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakDuplex.o \
+	${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakF-1600-opt32.o \
+	${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakSponge.o \
+	${OBJECTDIR}/sha3/hash_functions/Keccak/Keccak_sha3.o
 
 
 # C Compiler Flags
@@ -74,52 +82,92 @@ ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation: ${OBJECTFILES
 ${OBJECTDIR}/AESCipher.o: AESCipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipher.o AESCipher.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipher.o AESCipher.cpp
 
 ${OBJECTDIR}/AESCipherOpenSSL.o: AESCipherOpenSSL.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipherOpenSSL.o AESCipherOpenSSL.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/AESCipherOpenSSL.o AESCipherOpenSSL.cpp
 
 ${OBJECTDIR}/Approximation.o: Approximation.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Approximation.o Approximation.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Approximation.o Approximation.cpp
 
 ${OBJECTDIR}/CombinatiorialGenerator.o: CombinatiorialGenerator.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/CombinatiorialGenerator.o CombinatiorialGenerator.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/CombinatiorialGenerator.o CombinatiorialGenerator.cpp
+
+${OBJECTDIR}/CombinatorialIndexer.o: CombinatorialIndexer.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/CombinatorialIndexer.o CombinatorialIndexer.cpp
 
 ${OBJECTDIR}/ICipher.o: ICipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
+
+${OBJECTDIR}/Logger.o: Logger.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Logger.o Logger.cpp
 
 ${OBJECTDIR}/NTLUtils.o: NTLUtils.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/NTLUtils.o NTLUtils.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/NTLUtils.o NTLUtils.cpp
 
 ${OBJECTDIR}/ProgressMonitor.o: ProgressMonitor.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ProgressMonitor.o ProgressMonitor.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ProgressMonitor.o ProgressMonitor.cpp
 
 ${OBJECTDIR}/base.o: base.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/base.o base.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/base.o base.cpp
 
 ${OBJECTDIR}/ciphers/aes.o: ciphers/aes.cpp 
 	${MKDIR} -p ${OBJECTDIR}/ciphers
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ciphers/aes.o ciphers/aes.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ciphers/aes.o ciphers/aes.cpp
 
 ${OBJECTDIR}/main.o: main.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/main.o main.cpp
+
+${OBJECTDIR}/sha3/Sha3Interface.o: sha3/Sha3Interface.cpp 
+	${MKDIR} -p ${OBJECTDIR}/sha3
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/Sha3Interface.o sha3/Sha3Interface.cpp
+
+${OBJECTDIR}/sha3/hash_functions/BMW/BMW_sha3.o: sha3/hash_functions/BMW/BMW_sha3.cpp 
+	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/BMW
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/BMW/BMW_sha3.o sha3/hash_functions/BMW/BMW_sha3.cpp
+
+${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakDuplex.o: sha3/hash_functions/Keccak/KeccakDuplex.c 
+	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak
+	${RM} "$@.d"
+	$(COMPILE.c) -O2 `pkg-config --cflags libcrypto`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakDuplex.o sha3/hash_functions/Keccak/KeccakDuplex.c
+
+${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakF-1600-opt32.o: sha3/hash_functions/Keccak/KeccakF-1600-opt32.c 
+	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak
+	${RM} "$@.d"
+	$(COMPILE.c) -O2 `pkg-config --cflags libcrypto`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakF-1600-opt32.o sha3/hash_functions/Keccak/KeccakF-1600-opt32.c
+
+${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakSponge.o: sha3/hash_functions/Keccak/KeccakSponge.c 
+	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak
+	${RM} "$@.d"
+	$(COMPILE.c) -O2 `pkg-config --cflags libcrypto`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakSponge.o sha3/hash_functions/Keccak/KeccakSponge.c
+
+${OBJECTDIR}/sha3/hash_functions/Keccak/Keccak_sha3.o: sha3/hash_functions/Keccak/Keccak_sha3.cpp 
+	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak/Keccak_sha3.o sha3/hash_functions/Keccak/Keccak_sha3.cpp
 
 # Subprojects
 .build-subprojects:

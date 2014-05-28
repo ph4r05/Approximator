@@ -26,6 +26,7 @@
 // FGb
 //
 #include "faugere/fgb.h"
+#include "CombinatorialIndexer.h"
 // NTL library.
 #include <NTL/vec_vec_GF2.h>
 #include <NTL/vec_GF2.h>
@@ -74,9 +75,8 @@ private:
     // Size of the input block (message+key) of the cipher in ulong types.
     ULONG inputWidthUlong;
     
-    // Array of binomial sums for computing combination index in the lexicographic ordering.
-    // The first array element corresponds to the order 1, next to the order 2 and so on...
-    ULONG ** binomialSums;
+    // Combinatorial indexer - helps with computing index of combinations and vice versa.
+    CombinatorialIndexer combIndexer;
     
     // Number of threads to use for parallelized computation.
     uint threadCount;
@@ -109,65 +109,6 @@ public:
      * Initialization of the internal pre-computed tables.
      */
     void init();
-    
-    /**
-     * Returns the number of particular combination, assuming N=cipher input width.
-     * Uses precomputed values to optimize computation - cubeBinomialSums. 
-     * @param ULONG
-     */
-    ULONG getCubeIdx(ULONG x1, ULONG x2, ULONG x3) const;
-    
-    /**
-     * General function for computing an combination index in an lexicographic ordering.
-     * Works only up to defined degree.
-     * 
-     * @param order       number of elements in the combination.
-     * @param xs          ULONG representation of the combination (output of the comb. generator).
-     * @param xsOffset    offset for the combination in xs to take into account (for recursive computation).
-     * @param Noffset     minus offset to the N (for recursion).
-     * @param combOffset  minus offset for combination elements (recursion).
-     * @return 
-     */
-    ULONG getCombinationIdx(uint order, const ULONG * xs, uint xsOffset=0, ULONG Noffset=0, ULONG combOffset=0) const;
-    
-    /**
-     * Determines combination from its index.
-     * O(order*numvariables)
-     * 
-     * @param input
-     * @param output
-     * @param iBuff
-     * @param oBuff
-     * @return 
-     */
-    int getCombinationFromIdx(uint order, ULONG * xs, ULONG idx) const;
-    
-    /**
-     * Computes combination ULONG number. 
-     * Generated numbers are not continuous (not space effective)!
-     * Format:
-     *  4bits to store order (number of elements to choose)
-     *  1. element
-     *  2. element
-     *  ...
-     * 
-     * Warning: This format can store only small order!
-     * Benefit: Easily reversible.
-     * 
-     * @param order
-     * @param xs
-     * @return 
-     */
-    ULONG getCombinationULong(uint order, const ULONG * xs) const;
-    
-    /**
-     * Determines combination from its ULONG index.
-     * 
-     * @param xs    Buffer the combination will be stored in. Has to be big enough to store the whole combination.
-     * @param comb  Combination ULONG number.
-     * @return 
-     */
-    int getCombinationFromULong(ULONG * xs, ULONG combUlong) const;
     
     /**
      * Evaluates function determined by coefficients 
@@ -270,6 +211,16 @@ public:
      * @param iBuff
      */
     void resetFGb() const;
+    
+    /**
+     * Computes Gb with standard settings.
+     * @param n_input
+     * @param inputBasis
+     * @param outputBasis
+     * @param t0
+     * @return 
+     */
+    int computeFGb(int n_input, Dpol * inputBasis, Dpol * outputBasis, double * t0) const;
     
     /**
      * Reads 8-bit buffer to the 64 bit buffer.
