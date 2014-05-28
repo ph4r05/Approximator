@@ -20,7 +20,6 @@
 #include <unistd.h>
 
 #include <NTL/mat_GF2.h>
-#include <openssl/md5.h>
 #include <boost/unordered_map.hpp>
 
 #include "Approximation.h"
@@ -28,43 +27,22 @@
 #include "ProgressMonitor.h"
 #include "NTLUtils.h"
 
-// The following macro should be 1 to call FGb modulo a prime number.
-#define LIBMODE 1  
-#define CALL_FGB_DO_NOT_DEFINE
-#include "call_fgb.h"
-#define FGb_MAXI_BASE 100000
-
 NTL_CLIENT
 using namespace std;
 using namespace NTL;
 
 Approximation::Approximation(uint orderLimit) : cip(NULL), dumpCoefsToFile(false), 
         outputWidthUlong(0), inputWidthUlong(0),
-        threadCount(1), varNames(NULL), keybitsToZero(0),
-        poly2take(NULL), numPolyActive(0), fgbFile(NULL) {
+        threadCount(1), keybitsToZero(0),
+        poly2take(NULL), numPolyActive(0) {
     
     this->orderLimit = orderLimit;
 }
 
-Approximation::~Approximation() {    
-    if (varNames!=NULL){
-        for(uint var = 0; var <= 8*byteWidth; var++){
-            delete[] varNames[var];
-            varNames[var]=NULL;
-        }
-        
-        delete[] varNames;
-        varNames = NULL;
-    }
-    
+Approximation::~Approximation() {       
     if (poly2take!=NULL){
         delete[] poly2take;
         poly2take = NULL;
-    }
-    
-    if (fgbFile!=NULL){
-        fclose(fgbFile);
-        fgbFile = NULL;
     }
 }
 
@@ -85,20 +63,13 @@ void Approximation::init() {
     // Init combinatorial indexer.
     combIndexer.init(8*byteWidth, orderLimit);
     
-    // Variable names for FGb.
-    varNames = new char * [8*byteWidth];
-    for(uint var=0; var<8*byteWidth; var++){
-        varNames[var] = new char[10];
-        snprintf(varNames[var], 10, "x_%03d", var);
-    }
+    // Init FGb helper
+    fgb.init(byteWidth, orderLimit, cip->getOutputBlockSize()*8);
     
     // Init polynomial-to-take bitmap.
     poly2take = new ULONG[outputWidthUlong];
     numPolyActive = 8*cip->getOutputBlockSize();
     memset(poly2take, 0xff, SIZEOF_ULONG * outputWidthUlong);
-    
-    // Open logfile for library
-    fgbFile = fopen("fgb.log", "a+");
 }
 
 bool Approximation::isPoly2Take(uint polyIdx) const {
@@ -190,7 +161,7 @@ void Approximation::computeCoefficients() {
             
             // Transform output to the ULONG array
             // For better memory handling and XORing in an one big register.
-            this->readUcharToUlong(output, cip->getOutputBlockSize(), ulongOut);
+            readUcharToUlong(output, cip->getOutputBlockSize(), ulongOut);
             
             // Generate coefficients of this order, perform it simultaneously
             // on one ULONG type.
@@ -310,7 +281,7 @@ int Approximation::selftestApproximation(unsigned long numSamples) const {
             input[(randIdx/8)] |= ULONG1 << (randIdx%8);
         }
         
-        this->readUcharToUlong(input, byteWidth, iBuff);
+        readUcharToUlong(input, byteWidth, iBuff);
         
         // Evaluate cipher.
         cip->evaluate(input, input + cip->getInputBlockSize(), outputCip);
@@ -458,7 +429,7 @@ int Approximation::evaluateCoefficients(const unsigned char* input, unsigned cha
     
     // Reset output buffer, only ones will be set here, has to be set to zero
     // and copy to bigger buffer for better manipulation & speed.
-    this->readUcharToUlong(input, byteWidth, iBuff);
+    readUcharToUlong(input, byteWidth, iBuff);
     
     // Evaluation on ULONGs.
     for(uint ulongCtr=0; ulongCtr<outputWidthUlong; ulongCtr++){
@@ -507,7 +478,7 @@ int Approximation::evaluateCoefficients(const unsigned char* input, unsigned cha
     }
     
     // Transform ULONG to output.
-    this->readUlongToUchar(output, cip->getOutputBlockSize(), oBuff);
+    readUlongToUchar(output, cip->getOutputBlockSize(), oBuff);
     return 0;
 }
 
@@ -725,7 +696,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     dumpBin(cout, key, cip->getKeyBlockSize());
     
     // Dump how polynomial-take-map looks like.
-    cout << " NumVariables=" << numVariables << endl;
+    cout << " NumVariables=" << numVariables << "; zeroKeyBits=" << keybitsToZero << endl;
     cout << " NumPoly="<<numPolynomials<<"; Polymap: ";
     dumpHex(cout, poly2take, outputWidthUlong);
     cout << " Expected basis size=" << dec << (samples*numPolynomials) << endl;
@@ -760,8 +731,8 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
         }
         
         // Input variables, only masked are taken into consideration during partial evaluation.
-        this->readUcharToUlong(input, cip->getInputBlockSize(), iBuff);
-        this->readUcharToUlong(key,   cip->getKeyBlockSize(),   iBuff + OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG));
+        readUcharToUlong(input, cip->getInputBlockSize(), iBuff);
+        readUcharToUlong(key,   cip->getKeyBlockSize(),   iBuff + OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG));
         
         // Evaluation.
         if (selfTest){
@@ -814,12 +785,12 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
             ULONG numTerms = 0;
             ULONG hash = 0;
             uint curPolyIdx = sample*numPolynomials + polyCtr;
-            inputBasis1[curPolyIdx] = polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms, &hash);
+            inputBasis1[curPolyIdx] = fgb.polynomial2FGb(numVariables, coeffEval, orderLimit, poly, &numTerms, &hash);
             numTermsSum += numTerms;
             
             // If zero terms, it is null, do not add it to the base since 
             // it does not increase basis dimension.
-            if (numTerms==0){
+            if (numTerms==0 || fgb.isPoly1(inputBasis1[curPolyIdx], numVariables)){
                 continue;
             }
             
@@ -864,7 +835,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
         cout << " Number of equations reduced to " << numVariables << endl;
         if (dumpInputBase){
             cout << " Original basis, size=" << inputBasisSize << endl;
-            dumpBasis(numVariables, inputBasis1, inputBasisSize);
+            fgb.dumpBasis(numVariables, inputBasis1, inputBasisSize);
         } 
         
         inputBasisSize = numVariables;
@@ -880,16 +851,16 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
     // Print out input basis
     if (dumpInputBase){
         cout << " Input basis, size=" << inputBasisSize << endl;
-        dumpBasis(numVariables, inputBasis, inputBasisSize);
+        fgb.dumpBasis(numVariables, inputBasis, inputBasisSize);
     }
     
     // Compute Gb.
     cout << " [+] Going to compute GB, n_input="<<dec<<inputBasisSize<<endl;
     double t0 = 0.0;
-    int nb = computeFGb(inputBasisSize, inputBasis, outputBasis, &t0);
+    int nb = fgb.computeFGb(inputBasisSize, inputBasis, outputBasis, &t0);
     
     // For now just print out the Grobner basis.
-    dumpBasis(numVariables, outputBasis, nb);
+    fgb.dumpBasis(numVariables, outputBasis, nb);
     cout << "Input basis dimension=" << inputBasisSize << endl;
     cout << "Basis dimension=" << nb << endl;
     cout << "Number of variables=" << numVariables << endl;
@@ -931,9 +902,8 @@ int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar *
     // Detect if system has no solution.
     // This happens if Gb = <1>.
     if (numPoly==1){
-        const I32 nb_mons = FGB(nb_terms)(basis[0]);
-        if (nb_mons==1){
-            cout << "   System has only 1 variable, 1 term. Probably Gb=<1> what means there is no solution. NumVariables=" << numVariables << endl;
+        if (fgb.isPoly1(basis[0], numVariables)){
+            cout << "   System generates ideal=<1> what means there is no solution. NumVariables=" << numVariables << endl;
             return -2;
         }
         
@@ -960,11 +930,12 @@ int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar *
     
     // Add polynomial to the systm matrix, constant term to the b vector.
     for(uint polyIdx = 0; polyIdx < numPoly; polyIdx++){
-        const I32 nb_mons = FGB(nb_terms)(basis[polyIdx]);  // Number of Monomials.
+        const I32 nb_mons = fgb.getNumberOfTerms(basis[polyIdx]);  // Number of Monomials.
         I32* Mons = new I32[numVariables * nb_mons];        // Exponents for variables in terms.
         I32* Cfs = new I32[nb_mons];                        // Coefficients for terms.
-        FGB(export_poly)(numVariables, nb_mons, Mons, Cfs, basis[polyIdx]);
         I32 j;
+        
+        fgb.exportPolynomial(numVariables, nb_mons, Mons, Cfs, basis[polyIdx]);
         for (j = 0; j < nb_mons; j++) {
             UI32 k, is_one = 1;
             I32* ei = Mons + j*numVariables;
@@ -1026,117 +997,6 @@ int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar *
     dumpHex(cout, solvedKey, solByteSize);
     dumpBin(cout, solvedKey, solByteSize);
     return 1;
-}
-
-void Approximation::dumpFGbPoly(uint numVariables, Dpol poly) const {
-    // Import the internal representation of each polynomial computed by FGb.
-    const I32 nb_mons = FGB(nb_terms)(poly);        // Number of Monomials.
-    I32* Mons = new I32[numVariables * nb_mons];    // (UI32*) (malloc(sizeof (UI32) * numVariables * nb_mons));
-    I32* Cfs = new I32[nb_mons];                    // (I32*) (malloc(sizeof (I32) * nb_mons));
-    FGB(export_poly)(numVariables, nb_mons, Mons, Cfs, poly);
-    I32 j;
-    for (j = 0; j < nb_mons; j++) {
-
-        UI32 k, is_one = 1;
-        I32* ei = Mons + j*numVariables;
-
-        if (j > 0) {
-            cout << "+";
-        }
-
-        cout << Cfs[j];
-        for (k = 0; k < numVariables; k++)
-            if (ei[k]) {
-                if (ei[k] == 1) {
-                    cout << varNames[k];
-                } else {
-                    cout << varNames[k] << "^" << ei[k];
-                }
-                is_one = 0;
-            }
-        if (is_one) {
-            cout << "*1";
-        }
-    }
-
-    delete[] Mons;
-    delete[] Cfs;
-}
-
-void Approximation::dumpBasis(uint numVariables, Dpol* basis, uint numPoly) const {
-    cout << "[ len=" << numPoly << endl;
-    for (uint i = 0; i < numPoly; i++) {
-        // Use this fuction to print the result.
-        // FGB(see_Dpol)(outputBasis[i]);
-        
-        cout << "# " << dec << setw(4) << setfill('0') << right << i << ": ";
-        dumpFGbPoly(numVariables, basis[i]);
-        if (i < (numPoly - 1)) {
-            cout << endl;
-        }
-    }
-    cout << "]" << endl;
-}
-
-void Approximation::initFGb(uint numVariables) const {
-    FGB(enter)(); /* First thing to do : GMP original memory allocators are saved */
-    
-    // Do not change the following parameters (change will cause runtime error):
-    //   2 is the number of bytes of each coefficients so the
-    //     maximal prime is < 2^16
-    //   2 is the number of bytes of each exponent:
-    //     it means that each exponent should be < 2^15
-    FGB(init_urgent)(2,MAPLE_FGB_BIGNNI,"DRLDRL",FGb_MAXI_BASE,0);
-    
-    FGB(init)(1,1,0,fgbFile); /* do not change */
-    {
-      UI32 pr[]={(UI32)(2)}; /* We compute in GF(2)[x1,x2,...,x_{8*byteWidth}] */
-      FGB(reset_coeffs)(1,pr);
-    }
-    
-    {
-      FGB(reset_expos)(numVariables,0,varNames);  /* Define the monomial ordering: DRL(k1,k2) where 
-                                    k1 is the size of the 1st block of variables 
-                                    k2 is the size of the 2nd block of variables 
-                                    and k1+k2=nb_vars is the total number of variables
-                                   */
-    }
-}
-
-void Approximation::deinitFGb() const {
-    resetFGb();
-    FGB(exit)(); /* restore original GMP allocators */
-}
-
-void Approximation::resetFGb() const {
-    FGB(reset_memory)(); /* to reset Memory */
-}
-
-int Approximation::computeFGb(int n_input, Dpol* inputBasis, Dpol* outputBasis, double* t0) const {
-    int step0=-1;
-    int bk0=0;
-    int nb;
-    struct sFGB_Comp_Desc Env;
-    FGB_Comp_Desc env=&Env;
-    env->_compute=FGB_COMPUTE_GBASIS; /* The following function can be used to compute Gb, NormalForms, RR, ... 
-                                         Here we want to compute a Groebner Basis */
-    env->_nb=0; /* parameter is used when computing NormalForms (see an example in bug_prog2.c */
-    env->_force_elim=0; /* if force_elim=1 then return only the result of the elimination 
-                           (need to define a monomial ordering DRL(k1,k2) with k2>0 ) */
-    env->_off=0;       /* should be 0 for modulo p computation	*/
-
-    env->_index=900000; /* This is is the maximal size of the matrices generated by F4 
-                          you can increase this value according to your memory */
-    env->_zone=0;    /* should be 0 */
-    env->_memory=0;  /* should be 0 */
-    /* Other parameters :
-       t0 is the CPU time (reference to a double)
-       bk0 : should be 0 
-       step0 : this is the number primes for the first step
-               if step0<0 then this parameter is automatically set by the library
-     */
-    nb=FGB(groebner)(inputBasis,n_input,outputBasis,1,0,t0,bk0,step0,0,env);
-    return nb;
 }
 
 int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMask, ULONG * iBuff, std::vector<ULONG> * coeffEval) const{
@@ -1234,143 +1094,14 @@ int Approximation::partialEvaluation(uint numVariables, ULONG * variablesValueMa
     return 0;
 }
 
-Dpol_INT Approximation::polynomial2FGb(uint numVariables, std::vector<ULONG>* coefs, uint maxOrder, uint polyIdx, ULONG * numTerms, ULONG * hash) const {
-    ULONG termsEnabled = 0;
-    Dpol_INT prev;
-    I32 * termRepresentation = new I32[numVariables];
-    MD5_CTX md5Ctx;
-    
-    // Has to determine exact number of enabled terms in the polynomial.
-    const uint coefSegment = polyIdx / (SIZEOF_ULONG * 8);
-    const uint coefOffset = polyIdx % (SIZEOF_ULONG * 8);
-    for(uint order = 0; order <= orderLimit; order++){
-        CombinatiorialGenerator cg(numVariables, order);
-        for(; cg.next(); ){
-            const ULONG ctr = cg.getCounter(); 
-            termsEnabled += (coefs[order][outputWidthUlong*ctr+coefSegment] & (ULONG1<<(coefOffset))) > 0;
-        }
-    }
-    
-    if (hash!=NULL){
-        MD5_Init(&md5Ctx);
-        MD5_Update(&md5Ctx, &termsEnabled, SIZEOF_ULONG);
-    }
-    
-    // Create an empty polynomial with specified number of terms. 
-    prev=FGB(creat_poly)(termsEnabled);
-    
-    // Iterate again - now construct the polynomial.
-    uint termCounter=0;
-    for(uint order = 0; order <= orderLimit && termCounter < termsEnabled; order++){
-        CombinatiorialGenerator cg(numVariables, order);
-        for(; cg.next() && termCounter < termsEnabled; ){
-            const ULONG ctr = cg.getCounter();
-            if ((coefs[order][outputWidthUlong*ctr+coefSegment] & (ULONG1<<(coefOffset))) == 0) continue;
-            
-            // Update hash value if we want to compute it. 
-            if (hash!=NULL){
-                MD5_Update(&md5Ctx, &ctr, SIZEOF_ULONG);
-            }
-            
-            // Coefficient is present, set term variables to representation.
-            const ULONG * state = cg.getCurState();
-            memset(termRepresentation, 0, sizeof(I32) * numVariables);
-            for(uint x=0; x<order; x++){
-                termRepresentation[state[x]]=1;
-            }
-            
-            // Set term to the polynomial.
-            FGB(set_expos2)(prev, termCounter, termRepresentation, numVariables);
-            
-            // Set term coefficient (simple, always 1 since we are in GF(2)).
-            FGB(set_coeff_I32)(prev, termCounter, 1);
-            
-            termCounter+=1;
-        }
-    }
-    
-    // Final hash computation
-    if (hash!=NULL){
-        ULONG hash1, hash2;
-        uchar md[MD5_DIGEST_LENGTH];
-        
-        MD5_Final(md, &md5Ctx);
-        readUcharToUlong(md,              SIZEOF_ULONG, &hash1);
-        readUcharToUlong(md+SIZEOF_ULONG, SIZEOF_ULONG, &hash2);
-        
-        *hash = hash1 ^ hash2;
-    }
-    
-    // Sorting for GB, has to be done and is very slowly...
-    FGB(full_sort_poly2)(prev);
-    
-    if (numTerms!=NULL){
-        *numTerms = termsEnabled;
-    }
-    
-    delete[] termRepresentation;
-    return prev;
+void Approximation::initFGb(uint numVariables) const {
+    fgb.initFGb(numVariables);
 }
 
-void Approximation::readUcharToUlong(const uchar * input, uint size, ULONG * iBuff) const {
-    // At first reset memory of the big buffer.
-    memset(iBuff, 0, size);
-    // And read particular parts of the input to the big buffer.
-    for(uint x = 0; x < size; x++){
-        iBuff[x/SIZEOF_ULONG] = READ_TERM_1(iBuff[x/SIZEOF_ULONG], input[x], x%SIZEOF_ULONG);
-    }
+void Approximation::deinitFGb() const {
+    fgb.deinitFGb();
 }
 
-void Approximation::readUlongToUchar(uchar* output, uint size, const ULONG* iBuff) const {
-    for(uint x=0; x<size; x++){
-        output[x] = (iBuff[x/SIZEOF_ULONG] >> (8* (x % SIZEOF_ULONG))) & ((unsigned char)0xffu);
-    }
-}
-
-//
-// FGb helper
-//
-extern "C" {
-    //FILE* log_output;
-    void info_Maple(const char* s)
-    {
-      /* 
-         if (verbose)
-         {
-         fprintf(stderr,"%s",s);
-         fflush(stderr);
-         }
-      */
-    }
-
-    void FGb_int_error_Maple(const char* s)
-    {
-      fprintf(stderr,"Error: %s",s);
-      fflush(stderr);
-      exit(3);
-    }
-
-    void FGb_error_Maple(const char* s)
-    {
-      FGb_int_error_Maple(s);
-    }
-
-    void FGb_checkInterrupt()
-    {
-        
-    }
-
-    void FGb_int_checkInterrupt()
-    {
-    }
-
-    void FGb_push_gmp_alloc_fnct(void *(*alloc_func) (size_t),
-                                 void *(*realloc_func) (void *, size_t, size_t),
-                                 void (*free_func) (void *, size_t))
-    {
-    }
-
-    void FGb_pop_gmp_alloc_fnct()
-    {
-    }
+void Approximation::resetFGb() const {
+    fgb.resetFGb();
 }

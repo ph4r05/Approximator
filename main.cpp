@@ -79,11 +79,14 @@ int main(int argc, char** argv) {
     
     // Approximation object - main one.
     Approximation ap(orderLimit);
+    
+    // Set cipher
     ap.setCipher(&c);
-    ap.init();
     
     // Number of key bits set to 0.
     ap.setKeybitsToZero(vm["key-to-zero"].as<uint>());
+    
+    ap.init();
     
     // Internal implementation test.
     bool itest = vm["itest"].as<bool>();

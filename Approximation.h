@@ -27,6 +27,7 @@
 //
 #include "faugere/fgb.h"
 #include "CombinatorialIndexer.h"
+#include "FGbHelper.h"
 // NTL library.
 #include <NTL/vec_vec_GF2.h>
 #include <NTL/vec_GF2.h>
@@ -78,11 +79,11 @@ private:
     // Combinatorial indexer - helps with computing index of combinations and vice versa.
     CombinatorialIndexer combIndexer;
     
+    // FGb helper class.
+    FGbHelper fgb;
+    
     // Number of threads to use for parallelized computation.
     uint threadCount;
-    
-    // Variable names for FGb.
-    char ** varNames;
     
     // Number of key-bits set to zero.
     uint keybitsToZero;
@@ -91,8 +92,6 @@ private:
     ULONG * poly2take;
     // Hamming weight of the poly2take.
     uint numPolyActive;
-    // Log file for FGb library.
-    FILE * fgbFile;
     
 public:
     Approximation(uint orderLimit);
@@ -171,29 +170,6 @@ public:
     int solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey) const;
     
     /**
-     * Generated FGb polynomial representation.
-     * Allocates a new memory.
-     * @param coefs     Coefficient storage for the polynomials.
-     * @param maxOrder  Maximal order of the terms stored in coefs.
-     * @param polyIdx   Which polynomial to represent.
-     * @param numTerms [OPTIONAL] If non-null, it will contain number of terms in the polynomial.
-     * @param hash [OPTIONAL] If non-null, hash of the polynomial will be computed and set here.
-     */
-    Dpol_INT polynomial2FGb(uint numVariables, std::vector<ULONG> * coefs, uint maxOrder, uint polyIdx, ULONG * numTerms = NULL, ULONG * hash = NULL) const;
-    
-    /**
-     * Dumps FGb polynomial to the standard output.
-     * @param numVariables
-     * @param poly
-     */
-    void dumpFGbPoly(uint numVariables, Dpol poly) const;
-    
-    /**
-     * Dumps polynomial basis.
-     */
-    void dumpBasis(uint numVariables, Dpol * basis, uint numPoly) const;
-    
-    /**
      * Initializes FGb library.
      * @param numVariables
      */
@@ -211,35 +187,6 @@ public:
      * @param iBuff
      */
     void resetFGb() const;
-    
-    /**
-     * Computes Gb with standard settings.
-     * @param n_input
-     * @param inputBasis
-     * @param outputBasis
-     * @param t0
-     * @return 
-     */
-    int computeFGb(int n_input, Dpol * inputBasis, Dpol * outputBasis, double * t0) const;
-    
-    /**
-     * Reads 8-bit buffer to the 64 bit buffer.
-     * iBuff has to be big enough to fit the input buffer.
-     * 
-     * @param input     input buffer to read.
-     * @param size      size of the input buffer in bytes to read.
-     * @param iBuff     destination buffer.
-     */
-    void readUcharToUlong(const uchar * input, uint size, ULONG * iBuff) const;
-    
-    /**
-     * Reads 64 bit buffer to the 8 bit buffer.
-     * 
-     * @param output    output buffer to write.
-     * @param size      size of the input buffer to read in bytes.
-     * @param iBuff     input buffer to read (from LSB).
-     */
-    void readUlongToUchar(uchar * output, uint size, const ULONG * iBuff) const;
     
     /**
      * Returns number of variables for current cipher and key-bits-to-zero setting.

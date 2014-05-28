@@ -13,7 +13,7 @@ extern "C" {
 #define FGB(fn) FGb_ ## fn
 #endif /*  LIBMODE==2 */
 
-
+#include <cstring>
 #include "protocol_maple.h"
 
 extern String FGB(alloc)(UI32 n);

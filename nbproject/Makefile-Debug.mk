@@ -40,6 +40,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/Approximation.o \
 	${OBJECTDIR}/CombinatiorialGenerator.o \
 	${OBJECTDIR}/CombinatorialIndexer.o \
+	${OBJECTDIR}/FGbHelper.o \
 	${OBJECTDIR}/ICipher.o \
 	${OBJECTDIR}/Logger.o \
 	${OBJECTDIR}/NTLUtils.o \
@@ -103,6 +104,11 @@ ${OBJECTDIR}/CombinatorialIndexer.o: CombinatorialIndexer.cpp
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.cc) -g -Wall -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/CombinatorialIndexer.o CombinatorialIndexer.cpp
+
+${OBJECTDIR}/FGbHelper.o: FGbHelper.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -g -Wall -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/FGbHelper.o FGbHelper.cpp
 
 ${OBJECTDIR}/ICipher.o: ICipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}

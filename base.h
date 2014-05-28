@@ -9,6 +9,7 @@
 #define	BASE_H
 #include <iostream>
 #include <iomanip>
+#include <cstring>
 #include <bitset>
 #include <vector>
 
@@ -68,6 +69,28 @@ typedef unsigned long ULONG;
 // Fast ceiling function for integers.
 #define OWN_CEIL(x)  (    (((int)(x)) < (x)) ? ((int)(x))+1 : ((int)(x))    )
 #define OWN_FLOOR(x) (    (((int)(x)) < (x)) ? ((int)(x))-1 : ((int)(x))    )
+
+// Maximal base size for FGb (number of polynomials).
+#define FGb_MAXI_BASE 100000
+
+/**
+ * Reads 8-bit buffer to the 64 bit buffer.
+ * iBuff has to be big enough to fit the input buffer.
+ * 
+ * @param input     input buffer to read.
+ * @param size      size of the input buffer in bytes to read.
+ * @param iBuff     destination buffer.
+ */
+void readUcharToUlong(const uchar * input, uint size, ULONG * iBuff);
+
+/**
+ * Reads 64 bit buffer to the 8 bit buffer.
+ * 
+ * @param output    output buffer to write.
+ * @param size      size of the input buffer to read in bytes.
+ * @param iBuff     input buffer to read (from LSB).
+ */
+void readUlongToUchar(uchar * output, uint size, const ULONG * iBuff);
 
 template<class T>
 void dumpHex(std::ostream & c, const std::vector<T> & inp, unsigned int size, bool endl=1) {
