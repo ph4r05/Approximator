@@ -23,9 +23,10 @@ CombinatiorialGenerator::CombinatiorialGenerator(ULONG up, ULONG down) {
     this->curCombinationValid = false;
     this->curUlongCombinationValid = false;
     this->counter = 0;
-    this->curState = new ULONG[down];
-    this->curCombination = new uchar[byteWidth];
-    this->curUlongCombination = new ULONG[byteUlongWidth];
+    
+    this->curState = down>0 ? new ULONG[this->down] : NULL;
+    this->curCombination = new uchar[this->byteWidth];
+    this->curUlongCombination = new ULONG[this->byteUlongWidth];
     this->reset();
 }
 
@@ -48,7 +49,7 @@ CombinatiorialGenerator::~CombinatiorialGenerator() {
 
 ULONG CombinatiorialGenerator::binomial(ULONG n, ULONG k) {
     ULONG r = 1, d = n - k;
-    if (k==0) return 1ul;
+    if (k==0) return ULONG1;
     if (k==1) return n;
     if (k==2) return (n*(n-1))/2ul;
     if (k==3) return (n*(n-1)*(n-2))/6ul;    
@@ -68,7 +69,9 @@ ULONG CombinatiorialGenerator::binomial(ULONG n, ULONG k) {
 
 void CombinatiorialGenerator::reset() {
     // Reset internal state, set to the first 
-    memset(curState, 0, sizeof(ULONG) * down);
+    if (down>0){
+        memset(curState, 0, sizeof(ULONG)*down);
+    }
     memset(curCombination, 0, sizeof(uchar)*byteWidth);
     memset(curUlongCombination, 0, sizeof(ULONG)*byteUlongWidth);
         
@@ -107,7 +110,6 @@ const ULONG* CombinatiorialGenerator::getCurUlongCombination() {
     curUlongCombinationValid=true;
     return curUlongCombination;
 }
-
 
 void CombinatiorialGenerator::firstCombination() {
     // Initialize current state properly.

@@ -138,7 +138,7 @@ int CombinatorialIndexer::getCombinationFromULong(ULONG* xs, ULONG combUlong) co
     
     combUlong = combUlong >> 4; // remove order.
     for(uint x=0; x<order; x++){
-        xs[x] = combUlong & ((1u << logBitInputWidth)-1);
+        xs[x] = combUlong & ((ULONG1 << logBitInputWidth)-1);
         combUlong = combUlong >> logBitInputWidth;
     }
     

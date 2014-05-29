@@ -12,6 +12,10 @@
 #include <cstring>
 #include <bitset>
 #include <vector>
+#include <random>       // std::default_random_engine
+#include <algorithm>    // std::move_backward
+#include <array>
+#include <iterator>
 
 typedef unsigned char uchar;
 typedef unsigned int  uint;
