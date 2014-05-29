@@ -183,9 +183,7 @@ public:
      * Function allows parallelization, does not modify any internal state, 
      * can be configured to compute only a sub-cube (each x-th term in the cube).
      * 
-     * Note: for better parallelization, specified term is not part of the returned
-     * cube, it has to be computed separately. Result is XOR of all possible
-     * sub-terms constructible from given term.
+     * Result is XOR of all possible terms constructible from given term.
      * 
      * Result is written to the subcube argument. 
      * 
@@ -195,10 +193,12 @@ public:
      * @param subcube    Output parameter.
      * @param step       Parallelization. (i*step) + offset
      * @param offset     Parallelization. (i*step) + offset
+     * @param incldueTerm If true, also the term specified in the arguments will
+     *                   be part of the result.
      * @return 
      */
     int subCubeTerm(uint termWeight, ULONG * termMask, uchar * finput, ULONG * subcube,
-        uint step, uint offset) const;
+        uint step, uint offset, bool includeTerm) const;
     
     /**
      * Initializes FGb library.

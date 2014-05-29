@@ -1098,7 +1098,7 @@ int Approximation::partialEvaluation(const std::vector<ULONG> * coefficients,
 }
 
 int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput, 
-        ULONG* subcube, uint step, uint offset) const {
+        ULONG* subcube, uint step, uint offset, bool includeTerm) const {
     const uint bitWidth = 8*byteWidth;
     
     // Function input/output for evaluation.
@@ -1111,7 +1111,7 @@ int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput,
     // Buffer stores mapping to the term bit positions present in term.
     // Used for mapping from termWeight combinations to numVariables combinations.
     ULONG * termBitPositions = new ULONG[termWeight];
-    for(uint pos=0, bpos=0; pos<bitWidth; pos++){
+    for(uint pos=0, bpos=0; (includeTerm ? (pos <=bitWidth) : (pos<bitWidth)); pos++){
         if ((termMask[(pos / (8*SIZEOF_ULONG))] & 1u << (pos % (8*SIZEOF_ULONG))) == 0) continue;
         termBitPositions[bpos++] = pos;
     }
@@ -1142,7 +1142,7 @@ int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput,
             // Mapping to the bit positions has to be used.
             for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
                 const uint bitIdx = termBitPositions[comb[tmpOrder]];
-                finput[bitIdx / 8] |= 1u << (bitIdxbitIdx % 8);
+                finput[bitIdx / 8] |= 1u << (bitIdx % 8);
             }
             
             // Evaluate target function
@@ -1159,6 +1159,8 @@ int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput,
     delete[] output;
     delete[] input;
     delete[] termBitPositions;
+    
+    return 1;
 }
 
 
