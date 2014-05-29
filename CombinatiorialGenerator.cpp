@@ -138,12 +138,15 @@ bool CombinatiorialGenerator::next() {
     //
     bool inext = true;
     
-    // If we are on the end, 
+    // Base case: move the last element of the combination.
+    // E.g., [1,2,3,4] -> [1,2,3,5].
     curState[down-1]+=1;
     
     // If the last counter overflowed, switch is needed.
+    // E.g., [1,2,3,128] for up=128. 128 is not legal, thus overflowed.
     if (curState[down-1] > up-1){
         
+        // Find nearest "digit" that does not overflow and can be incremented.
         long x=down-1;
         while(curState[x] >= up-down+x && x>=0){
             x-=1;        
@@ -156,7 +159,12 @@ bool CombinatiorialGenerator::next() {
 
         // If some shift happened, do the shifting.
         if (inext && x!=down-1){
+            // Increment the non-overflowing digit.
             curState[x]+=1;
+            // Since we have combinations here, all digits
+            // to the right from the newly shifted digit have
+            // to have the least possible combination.
+            // E.g., [1,2,126,127] -> [1,3,4,5]
             for(unsigned y=1; y<=(down-1-x); y++){
                 curState[x+y]=curState[x]+y;
             }
