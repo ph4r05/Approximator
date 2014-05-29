@@ -197,8 +197,11 @@ public:
      *                   be part of the result.
      * @return 
      */
-    int subCubeTerm(uint termWeight, ULONG * termMask, uchar * finput, ULONG * subcube,
+    int subCubeTerm(uint termWeight, const ULONG * termMask, const uchar * finput, ULONG * subcube,
         uint step, uint offset, bool includeTerm) const;
+    
+    
+    int cubeAttack(uint wPlain, uint wKey, uint numRelations) const;
     
     /**
      * Initializes FGb library.

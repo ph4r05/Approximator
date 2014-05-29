@@ -21,6 +21,7 @@
 
 #include <NTL/mat_GF2.h>
 #include <boost/unordered_map.hpp>
+#include <thread>
 
 #include "Approximation.h"
 #include "CombinatiorialGenerator.h"
@@ -574,7 +575,8 @@ int Approximation::selftestIndexing() const {
         
         ProgressMonitor pm(0.01);
         const ULONG total = cg.getTotalNum();
-        for(; cg.next(); ){
+        ULONG outerCtr = 0;
+        for(; cg.next(); outerCtr++){
             const ULONG ctr     = cg.getCounter();            
             const ULONG * state = cg.getCurState();
             const ULONG ctrComputed = combIndexer.getCombinationIdx(order, state);
@@ -587,6 +589,10 @@ int Approximation::selftestIndexing() const {
             double cProg = (double)ctr / (double)total;
             pm.setCur(cProg);
         }
+        if (outerCtr != total){
+            cerr << "Invalid number of iterations for configuration (" << bitWidth << ", " << order << ")!" << endl;
+        }
+        
         pm.setCur(1.0);
         cout << endl;
     }
@@ -826,7 +832,7 @@ void Approximation::solveKeyGrobner(uint samples, bool dumpInputBase, bool selfT
         }
     }
     
-    // Hack: we don't want over determined system for now, take last
+    // Hack: we don't want over-determined system for now, take last
     // numVariables equations to the input base.
     if (basisReduction > 0 && inputBasisSize > numVariables){
         for(uint i=0; i<numVariables; i++){
@@ -1097,7 +1103,7 @@ int Approximation::partialEvaluation(const std::vector<ULONG> * coefficients,
     return 0;
 }
 
-int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput, 
+int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uchar* finput, 
         ULONG* subcube, uint step, uint offset, bool includeTerm) const {
     const uint bitWidth = 8*byteWidth;
     
@@ -1111,8 +1117,11 @@ int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput,
     // Buffer stores mapping to the term bit positions present in term.
     // Used for mapping from termWeight combinations to numVariables combinations.
     ULONG * termBitPositions = new ULONG[termWeight];
-    for(uint pos=0, bpos=0; (includeTerm ? (pos <=bitWidth) : (pos<bitWidth)); pos++){
-        if ((termMask[(pos / (8*SIZEOF_ULONG))] & 1u << (pos % (8*SIZEOF_ULONG))) == 0) continue;
+    for(uint pos=0, bpos=0; pos<bitWidth ; pos++){
+        const ULONG bmask = (ULONG1 << (pos % (8*SIZEOF_ULONG)));
+        if ((termMask[(pos / (8*SIZEOF_ULONG))] & bmask) != bmask) continue;
+        
+        assert(bpos < termWeight);
         termBitPositions[bpos++] = pos;
     }
     
@@ -1123,7 +1132,7 @@ int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput,
     // Global combination counter for parallelization.
     ULONG globalCtr = 0u;
     // Start from order 0 (constant) and continue up to termWeight.
-    for(uint orderCtr=0; orderCtr < termWeight; orderCtr++){
+    for(uint orderCtr=0; (includeTerm ? (orderCtr <= termWeight) : (orderCtr < termWeight)); orderCtr++){
         // Current order to XOR is orderCtr.
         CombinatiorialGenerator cg(termWeight, orderCtr);
         for(; cg.next(); globalCtr++){
@@ -1142,7 +1151,7 @@ int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput,
             // Mapping to the bit positions has to be used.
             for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
                 const uint bitIdx = termBitPositions[comb[tmpOrder]];
-                finput[bitIdx / 8] |= 1u << (bitIdx % 8);
+                input[bitIdx / 8] |= 1u << (bitIdx % 8);
             }
             
             // Evaluate target function
@@ -1163,6 +1172,130 @@ int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput,
     return 1;
 }
 
+int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
+    const uint numKeyBits = cip->getKeyBlockSize() * 8;
+    
+    // Function input/output for evaluation.
+    uchar * output = new uchar[cip->getOutputBlockSize()];
+    uchar * input  = new uchar[byteWidth];
+    
+    // Local ULONG output buffer (on stack).
+    ULONG oBuff[outputWidthUlong];
+    ULONG * termMask = new ULONG[inputWidthUlong];
+
+    // Key relation is stored in coefficient array.
+    std::vector<ULONG> coeffKey[wKey+1];
+    
+    // Each thread will have separate ULONG output buffer.
+    ULONG * oThreadBuff = new ULONG[outputWidthUlong * threadCount];
+    
+    // Random variable bit vector = for constructing random terms.
+    std::vector<uint> vars;
+    for(uint i=0; i<byteWidth*8; i++){
+        vars.push_back(i);
+    }
+    
+    cout << " Going to start cube, threads=" << threadCount << endl;
+    
+    // Generate multiple relations for the key variables from the black-box function.
+    for(uint relationIdx = 0; relationIdx < numRelations; relationIdx++){
+        // Collect relations for the key variables.
+        // For this current relation, we generate randomly wPlain-bit 
+        // plaintext. 
+        random_shuffle(std::begin(vars), std::end(vars));
+        memset(termMask, 0, SIZEOF_ULONG * inputWidthUlong);
+        for(uint bitPos=0; bitPos < wPlain; bitPos++){
+            const uint bitIdx = vars[bitPos];
+            termMask[bitIdx / (8*SIZEOF_ULONG)] |= ULONG1 << (bitIdx % (8*SIZEOF_ULONG));
+        }
+        
+        // Plaintext is fixed, determine key variables present in the high order term.
+        // Allocate space for key coefficients & reset to zero.
+        for(unsigned int order = 0; order<=wKey; order++){
+            ULONG vecSize = CombinatiorialGenerator::binomial(numKeyBits, order) * outputWidthUlong;
+            coeffKey[order].assign(vecSize, (ULONG) 0);
+        }
+        
+        // For each key, one plaintext cube has to be computed.
+        ULONG globalCtr = 0;
+        for(uint orderCtr=0; orderCtr <= wKey; orderCtr++){
+            // Current order to XOR is orderCtr.
+            CombinatiorialGenerator cg(numKeyBits, orderCtr);
+            for(; cg.next(); globalCtr++){
+                // Array of the key variables.
+                const ULONG * keyVars = cg.getCurState();
+                // Generate finput for the cube process.
+                memset(input, 0, byteWidth);
+                // Reflect current key combination to the input.
+                // Turn bits specified by current combination to 1.
+                // Mapping to the bit positions has to be used.
+                for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
+                    const uint bitIdx = cip->getInputBlockSize()*8 + keyVars[tmpOrder];
+                    input[bitIdx / 8] |= 1u << (bitIdx % 8);
+                }
+                
+                cout << "Starting order=" << orderCtr << "; keyCombinationIdx=" << cg.getCounter() << "; all=" << cg.getTotalNum() <<  endl;
+                
+                // Compute cubes in a parallel fashion.
+                // Split work among several threads.
+                // If only 1 thread is to be used, do not use threads at all.
+                // This is good for debugging computation code, since segfault in
+                // thread is more difficult to debug.
+                memset(oBuff, 0, SIZEOF_ULONG * outputWidthUlong);
+                memset(oThreadBuff, 0, SIZEOF_ULONG * outputWidthUlong * threadCount);
+                
+                // Working threads array.
+                std::vector<std::thread> threads;
+                for(uint tidx = 0; threadCount > 1 && tidx < threadCount; tidx++){
+                    
+                    // Create & start a new thread with its work partition.
+                    // Definition of the thread function is using lambda expressions.
+                    // See http://en.cppreference.com/w/cpp/language/lambda 
+                    // for lambda expressions.
+                    threads.push_back(std::thread(
+                         [=](){
+                             this->subCubeTerm(
+                                     wPlain, termMask, input,
+                                     oThreadBuff+(this->outputWidthUlong*tidx), // Thread output buffer.
+                                     this->threadCount,                         // Step = thread count.
+                                     tidx,                                      // Offset = thread index.
+                                     true);                                     // Include last term.
+                        }));
+                        
+                    cout << " ..Thread " << tidx << " started" << endl;
+                }
+                
+                // Join on threads, wait for the result.
+                if (threadCount>1){
+                    for(auto& cthread : threads){
+                        if (cthread.joinable()){
+                            cthread.join();
+                            cout << " ..thread finished" << endl;
+                        } else {
+                            cout << " .!thread not joinable" << endl;
+                        }
+                    }
+                } else {
+                    this->subCubeTerm(wPlain, termMask, input, oThreadBuff, 1, 0, true);
+                }
+                cout << " ..All threads finished" << endl;
+                
+                // Assemble thread results to one single cube result.
+                // XOR all resulting sub-cubes into one cube.
+                for(uint tidx = 0; tidx < threadCount; tidx++){
+                    for(uint octr=0; octr < outputWidthUlong; octr++){
+                        oBuff[octr] ^= oThreadBuff[tidx*outputWidthUlong + octr];
+                    }
+                }
+            }
+        }
+    }
+    
+    delete[] output;
+    delete[] oThreadBuff;
+    delete[] termMask;
+    return 1;
+}
 
 void Approximation::initFGb(uint numVariables) const {
     fgb.initFGb(numVariables);

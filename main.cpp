@@ -42,6 +42,7 @@ int main(int argc, char** argv) {
             ("basis-reduction",po::value<uint>()->default_value(0)->implicit_value(0), "Reduce over-determined systems to exactly determined.")
             ("rounds,r",       po::value<int>()->default_value(-1)->implicit_value(-1), "Number of rounds of the cipher.")
             ("threads,t",      po::value<uint>()->default_value(1)->implicit_value(1),  "Number of threads to use for computation.")
+            ("cube",           po::value<uint>()->default_value(0)->implicit_value(0),  "Starts cube attack.")
 //            ("out-file,o",     po::value<std::string>(),                                       "Output file to write encrypted data")
 //            ("input-files",    po::value<std::vector<std::string>>(),                          "Input files")
 //            ("create-table",   po::value<std::string>(),                                       "Create encryption/decryption tables");
@@ -130,6 +131,15 @@ int main(int argc, char** argv) {
         cout << "Solving key equations with GB" << endl;
         ap.initFGb(ap.getNumVariables());
         ap.solveKeyGrobner(vm["samples"].as<uint>(), vm["dump-input"].as<bool>(), selftest, vm["basis-reduction"].as<uint>()); 
+        ap.deinitFGb();
+    }
+    
+    // Cube stuff.
+    uint cube = vm["cube"].as<uint>();
+    if (cube>0){
+        cout << "Cube attack" << endl;
+        ap.initFGb(ap.getNumVariables());
+        ap.cubeAttack(cube, 1, 1);
         ap.deinitFGb();
     }
     
