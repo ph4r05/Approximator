@@ -172,6 +172,35 @@ public:
     int solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar * solvedKey) const;
     
     /**
+     * Function computes subCube of a given term specified by termWeight and 
+     * term bitmask (with 1 on positions corresponding to a variable present in 
+     * term to cube).
+     * 
+     * Finput is function input that will be used for cube process in target
+     * function evaluation, except bits specified in termMask, those will be
+     * always set accordingly to the cubing. Term bits has to be set to 0!
+     * 
+     * Function allows parallelization, does not modify any internal state, 
+     * can be configured to compute only a sub-cube (each x-th term in the cube).
+     * 
+     * Note: for better parallelization, specified term is not part of the returned
+     * cube, it has to be computed separately. Result is XOR of all possible
+     * sub-terms constructible from given term.
+     * 
+     * Result is written to the subcube argument. 
+     * 
+     * @param termWeight Term to cube, number of variables, Hamming weight of its bitmask.
+     * @param termMask   Term to cube, bitmask
+     * @param finput     Input for the function evaluation (contains keys).
+     * @param subcube    Output parameter.
+     * @param step       Parallelization. (i*step) + offset
+     * @param offset     Parallelization. (i*step) + offset
+     * @return 
+     */
+    int subCubeTerm(uint termWeight, ULONG * termMask, uchar * finput, ULONG * subcube,
+        uint step, uint offset) const;
+    
+    /**
      * Initializes FGb library.
      * @param numVariables
      */

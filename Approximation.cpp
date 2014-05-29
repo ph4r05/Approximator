@@ -15,7 +15,7 @@
 
 #include <cstring>
 #include <cstdlib> 
-#include <ctime> 
+#include <ctime>
 #include <cassert>
 #include <unistd.h>
 
@@ -1096,6 +1096,71 @@ int Approximation::partialEvaluation(const std::vector<ULONG> * coefficients,
     delete[] newTerm;
     return 0;
 }
+
+int Approximation::subCubeTerm(uint termWeight, ULONG* termMask, uchar* finput, 
+        ULONG* subcube, uint step, uint offset) const {
+    const uint bitWidth = 8*byteWidth;
+    
+    // Function input/output for evaluation.
+    uchar * output = new uchar[cip->getOutputBlockSize()];
+    uchar * input  = new uchar[byteWidth];
+    
+    // Local ULONG output buffer (on stack).
+    ULONG oBuff[outputWidthUlong];
+    
+    // Buffer stores mapping to the term bit positions present in term.
+    // Used for mapping from termWeight combinations to numVariables combinations.
+    ULONG * termBitPositions = new ULONG[termWeight];
+    for(uint pos=0, bpos=0; pos<bitWidth; pos++){
+        if ((termMask[(pos / (8*SIZEOF_ULONG))] & 1u << (pos % (8*SIZEOF_ULONG))) == 0) continue;
+        termBitPositions[bpos++] = pos;
+    }
+    
+    // Reset output cube.
+    memset(subcube, 0, SIZEOF_ULONG * this->outputWidthUlong);
+    
+    // Start computing a cube from the available variables.
+    // Global combination counter for parallelization.
+    ULONG globalCtr = 0u;
+    // Start from order 0 (constant) and continue up to termWeight.
+    for(uint orderCtr=0; orderCtr < termWeight; orderCtr++){
+        // Current order to XOR is orderCtr.
+        CombinatiorialGenerator cg(termWeight, orderCtr);
+        for(; cg.next(); globalCtr++){
+            // Check if is configured to skip this combination.
+            if (step>1 && ((globalCtr % step) != offset)) continue;
+            // Array of the combination. Each array element contains set 
+            // element index chosen for combination.
+            const ULONG * comb = cg.getCurState();
+            
+            // Build the input buffer for the function to evaluate.
+            // As the base, use finput variable.
+            // Term bits have to be set to zero in finput!
+            memcpy(input, finput, byteWidth);
+            // Now reflect current combination to the finput.
+            // Turn bits specified by current combination to 1.
+            // Mapping to the bit positions has to be used.
+            for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
+                const uint bitIdx = termBitPositions[comb[tmpOrder]];
+                finput[bitIdx / 8] |= 1u << (bitIdxbitIdx % 8);
+            }
+            
+            // Evaluate target function
+            cip->evaluate(input, input + cip->getInputBlockSize(), output);
+            
+            // Transform uchar output to ulong buffer and xor it to the result.
+            readUcharToUlong(output, cip->getOutputBlockSize(), oBuff);
+            for(uint i=0; i<outputWidthUlong; i++){
+                subcube[i] ^= oBuff[i];
+            }
+        }
+    }
+    
+    delete[] output;
+    delete[] input;
+    delete[] termBitPositions;
+}
+
 
 void Approximation::initFGb(uint numVariables) const {
     fgb.initFGb(numVariables);
