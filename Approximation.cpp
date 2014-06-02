@@ -127,6 +127,13 @@ void Approximation::computeCoefficients(std::vector<ULONG> * coefficients) {
         coefficients[0][i/SIZEOF_ULONG] = READ_TERM_1(coefficients[0][i/SIZEOF_ULONG], output[i], i%SIZEOF_ULONG);
     }
     
+    // TODO: for order 3 and higher use multiple threads to parallelize the computation!
+    // TODO: use extension with not storing coefficients to the storage, compute cubes
+    // ad hoc for higher degrees where key is in the low degree...
+    // TODO: regarding the progress bar, only thread num 0 shows it. Does not mind
+    // since each thread has space to search of the same size, progress should be
+    // approximately the same for each thread.
+    
     // Find polynomial terms coefficient for order 1..orderLimit.
     for(uint order=1; order<=orderLimit; order++){
         CombinatiorialGenerator cg(byteWidth*8, order);
@@ -153,8 +160,9 @@ void Approximation::computeCoefficients(std::vector<ULONG> * coefficients) {
         // Synchronization barrier is needed after finishing particular order
         // because in order to compute order N we need to have coefficients of
         // terms of order N-1 and less.
+        ULONG combCtr=0;
         ProgressMonitor pm(0.01);
-        for(; cg.next(); ){
+        for(; cg.next(); combCtr++){
             const uchar * input = cg.getCurCombination();
             
             // Evaluate cipher on current combination.
@@ -1106,13 +1114,14 @@ int Approximation::partialEvaluation(const std::vector<ULONG> * coefficients,
 int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uchar* finput, 
         ULONG* subcube, uint step, uint offset, bool includeTerm) const {
     const uint bitWidth = 8*byteWidth;
+    const uint outByteWidth = cip->getOutputBlockSize();
     
     // Function input/output for evaluation.
     uchar * output = new uchar[cip->getOutputBlockSize()];
     uchar * input  = new uchar[byteWidth];
     
     // Local ULONG output buffer (on stack).
-    ULONG oBuff[outputWidthUlong];
+    ULONG sCube[outputWidthUlong];
     
     // Buffer stores mapping to the term bit positions present in term.
     // Used for mapping from termWeight combinations to numVariables combinations.
@@ -1125,8 +1134,16 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
         termBitPositions[bpos++] = pos;
     }
     
+    // Pre-compute key if it is possible, speed optimization.
+    // If the last bit position is not in the key block,
+    // this optimization can be performed.
+    bool precomputedKey = termWeight==0 || (termBitPositions[termWeight-1] < (8*cip->getInputBlockSize()));
+    if (precomputedKey){
+        cip->prepareKey(input + cip->getInputBlockSize());
+    }
+    
     // Reset output cube.
-    memset(subcube, 0, SIZEOF_ULONG * this->outputWidthUlong);
+    memset(sCube, 0, SIZEOF_ULONG * this->outputWidthUlong);
     
     // Start computing a cube from the available variables.
     // Global combination counter for parallelization.
@@ -1146,7 +1163,7 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
             // As the base, use finput variable.
             // Term bits have to be set to zero in finput!
             memcpy(input, finput, byteWidth);
-            // Now reflect current combination to the finput.
+            // Reflect current combination to the finput.
             // Turn bits specified by current combination to 1.
             // Mapping to the bit positions has to be used.
             for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
@@ -1155,16 +1172,21 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
             }
             
             // Evaluate target function
-            cip->evaluate(input, input + cip->getInputBlockSize(), output);
+            if (precomputedKey){
+                cip->evaluateWithPreparedKey(input, output);
+            } else {
+                cip->evaluate(input, input + cip->getInputBlockSize(), output);
+            }
             
-            // Transform uchar output to ulong buffer and xor it to the result.
-            readUcharToUlong(output, cip->getOutputBlockSize(), oBuff);
-            for(uint i=0; i<outputWidthUlong; i++){
-                subcube[i] ^= oBuff[i];
+            // XOR result of this evaluation to the cube block.
+            // Each bit corresponds to a different polynomial. For example: f0, f1, ..., f_128 for AES.
+            for(uint i=0; i<outByteWidth; i++){
+                sCube[i/SIZEOF_ULONG] ^= ((ULONG)output[i]) << (8*(i%SIZEOF_ULONG));
             }
         }
     }
     
+    memcpy(subcube, sCube, SIZEOF_ULONG * this->outputWidthUlong);
     delete[] output;
     delete[] input;
     delete[] termBitPositions;
@@ -1190,8 +1212,9 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     ULONG * oThreadBuff = new ULONG[outputWidthUlong * threadCount];
     
     // Random variable bit vector = for constructing random terms.
+    // In cube attack we are using plaintext variables.
     std::vector<uint> vars;
-    for(uint i=0; i<byteWidth*8; i++){
+    for(uint i=0; i<(cip->getInputBlockSize()*8); i++){
         vars.push_back(i);
     }
     

@@ -10,11 +10,14 @@
 
 #include "base.h"
 #include "ICipher.h"
+#include "aes.h"
 #include <openssl/aes.h>
 
 class AESCipher : public ICipher {
 private:
         int rounds;
+        unsigned int key_schedule[60];
+        
 public:
     AESCipher();
     AESCipher(const AESCipher& orig);
@@ -27,7 +30,12 @@ public:
     
     virtual int evaluate(const unsigned char * input, unsigned char * output);
     virtual int evaluate(const unsigned char * input, const unsigned char * key, unsigned char * output);
-private:
+    
+    inline virtual int prepareKey(const unsigned char * key) 
+    { KeyExpansion(key,key_schedule, 128); return 1; }
+    
+    inline virtual int evaluateWithPreparedKey(const unsigned char * input, unsigned char * output) 
+    { aes_encrypt(input, output, this->key_schedule, 128, this->rounds); return 1;}
 
 };
 
