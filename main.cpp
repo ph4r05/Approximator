@@ -79,6 +79,11 @@ int main(int argc, char** argv) {
         c.setNumRounds(vm["rounds"].as<int>());
     }
     
+    // Seed random number generator
+    unsigned seed = (unsigned)time(0);
+    srand(seed); 
+    cout << "Generator seeded with seed=" << seed << endl;
+    
     // Approximation object - main one.
     Approximation ap(orderLimit);
     
