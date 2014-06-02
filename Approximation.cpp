@@ -1134,13 +1134,11 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
         termBitPositions[bpos++] = pos;
     }
     
-    // Pre-compute key if it is possible, speed optimization.
+    // Pre-computation of the key if it is possible, speed optimization.
     // If the last bit position is not in the key block,
     // this optimization can be performed.
+    // Key is pre-computed in the calling method in order to avoid race conditions.
     bool precomputedKey = termWeight==0 || (termBitPositions[termWeight-1] < (8*cip->getInputBlockSize()));
-    if (precomputedKey){
-        cip->prepareKey(input + cip->getInputBlockSize());
-    }
     
     // Reset output cube.
     memset(sCube, 0, SIZEOF_ULONG * this->outputWidthUlong);
@@ -1258,6 +1256,10 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 }
                 
                 cout << "Starting order=" << orderCtr << "; keyCombinationIdx=" << cg.getCounter() << "; all=" << cg.getTotalNum() <<  endl;
+                cout << "Key = ";
+                dumpHex(cout, cg.getCurState(), orderCtr);
+                cout << "Plaintext = ";
+                dumpHex(cout, termMask, inputWidthUlong);
                 
                 // Compute cubes in a parallel fashion.
                 // Split work among several threads.
@@ -1267,7 +1269,12 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 memset(oBuff, 0, SIZEOF_ULONG * outputWidthUlong);
                 memset(oThreadBuff, 0, SIZEOF_ULONG * outputWidthUlong * threadCount);
                 
+                // Pre-compute key, always the same.
+                cip->prepareKey(input + cip->getInputBlockSize());
+                
                 // Working threads array.
+                cout << " Starting working threads=" << threadCount << endl;
+                
                 std::vector<std::thread> threads;
                 for(uint tidx = 0; threadCount > 1 && tidx < threadCount; tidx++){
                     
@@ -1284,8 +1291,6 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                                      tidx,                                      // Offset = thread index.
                                      true);                                     // Include last term.
                         }));
-                        
-                    cout << " ..Thread " << tidx << " started" << endl;
                 }
                 
                 // Join on threads, wait for the result.
@@ -1293,7 +1298,6 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                     for(auto& cthread : threads){
                         if (cthread.joinable()){
                             cthread.join();
-                            cout << " ..thread finished" << endl;
                         } else {
                             cout << " .!thread not joinable" << endl;
                         }
@@ -1306,10 +1310,18 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 // Assemble thread results to one single cube result.
                 // XOR all resulting sub-cubes into one cube.
                 for(uint tidx = 0; tidx < threadCount; tidx++){
+                    cout << " ...SubResult = ";
+                    dumpHex(cout, oThreadBuff + tidx*outputWidthUlong, outputWidthUlong);
+                    
                     for(uint octr=0; octr < outputWidthUlong; octr++){
                         oBuff[octr] ^= oThreadBuff[tidx*outputWidthUlong + octr];
                     }
                 }
+                
+                // Check if this relation is useful.
+                // If it is 0, not needed...
+                cout << "Result = ";
+                dumpHex(cout, oBuff, outputWidthUlong);
             }
         }
     }
