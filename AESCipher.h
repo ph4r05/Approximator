@@ -23,18 +23,18 @@ public:
     AESCipher(const AESCipher& orig);
     virtual ~AESCipher();
     
-    virtual unsigned getInputBlockSize()        { return AES_BLOCK_SIZE; };
-    virtual unsigned getOutputBlockSize()       { return AES_BLOCK_SIZE; };
-    virtual unsigned getKeyBlockSize()          { return AES_BLOCK_SIZE; };
-    virtual int setNumRounds(int rounds)        { this->rounds = rounds; return 1; };
+    virtual unsigned getInputBlockSize() const        { return AES_BLOCK_SIZE; };
+    virtual unsigned getOutputBlockSize() const       { return AES_BLOCK_SIZE; };
+    virtual unsigned getKeyBlockSize()  const         { return AES_BLOCK_SIZE; };
+    virtual int setNumRounds(int rounds)              { this->rounds = rounds; return 1; };
     
-    virtual int evaluate(const unsigned char * input, unsigned char * output);
-    virtual int evaluate(const unsigned char * input, const unsigned char * key, unsigned char * output);
+    virtual int evaluate(const unsigned char * input, unsigned char * output) const;
+    virtual int evaluate(const unsigned char * input, const unsigned char * key, unsigned char * output) const;
     
     inline virtual int prepareKey(const unsigned char * key) 
     { KeyExpansion(key,key_schedule, 128); return 1; }
     
-    inline virtual int evaluateWithPreparedKey(const unsigned char * input, unsigned char * output) 
+    inline virtual int evaluateWithPreparedKey(const unsigned char * input, unsigned char * output) const
     { aes_encrypt(input, output, this->key_schedule, 128, this->rounds); return 1;}
 
 };

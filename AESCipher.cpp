@@ -22,7 +22,7 @@ AESCipher::~AESCipher() {
     
 }
 
-int AESCipher::evaluate(const unsigned char* input, unsigned char* output) {
+int AESCipher::evaluate(const unsigned char* input, unsigned char* output) const {
     unsigned char inp[AES_BLOCK_SIZE];
     unsigned char key[AES_BLOCK_SIZE];
     memcpy(inp, input,                  AES_BLOCK_SIZE);
@@ -31,7 +31,7 @@ int AESCipher::evaluate(const unsigned char* input, unsigned char* output) {
     return evaluate(inp, key, output);
 }
 
-int AESCipher::evaluate(const unsigned char* input, const unsigned char* key, unsigned char* output) {
+int AESCipher::evaluate(const unsigned char* input, const unsigned char* key, unsigned char* output) const {
    unsigned int key_schedule[60];
    
    // Generate enc key.
