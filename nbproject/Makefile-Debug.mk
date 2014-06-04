@@ -42,6 +42,7 @@ OBJECTFILES= \
 	${OBJECTDIR}/CombinatorialIndexer.o \
 	${OBJECTDIR}/FGbHelper.o \
 	${OBJECTDIR}/ICipher.o \
+	${OBJECTDIR}/Keccak2.o \
 	${OBJECTDIR}/Logger.o \
 	${OBJECTDIR}/NTLUtils.o \
 	${OBJECTDIR}/ProgressMonitor.o \
@@ -114,6 +115,11 @@ ${OBJECTDIR}/ICipher.o: ICipher.cpp
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.cc) -g -Wall -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
+
+${OBJECTDIR}/Keccak2.o: Keccak2.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -g -Wall -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Keccak2.o Keccak2.cpp
 
 ${OBJECTDIR}/Logger.o: Logger.cpp 
 	${MKDIR} -p ${OBJECTDIR}

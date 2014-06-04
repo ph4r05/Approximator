@@ -101,6 +101,8 @@
     <itemPath>CombinatiorialGenerator.h</itemPath>
     <itemPath>ICipher.cpp</itemPath>
     <itemPath>ICipher.h</itemPath>
+    <itemPath>Keccak2.cpp</itemPath>
+    <itemPath>Keccak2.h</itemPath>
     <itemPath>Logger.cpp</itemPath>
     <itemPath>Logger.h</itemPath>
     <itemPath>NTLUtils.cpp</itemPath>
@@ -180,6 +182,10 @@
       <item path="ICipher.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="ICipher.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="Keccak2.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="Keccak2.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="Logger.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -404,6 +410,10 @@
       <item path="ICipher.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="ICipher.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="Keccak2.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="Keccak2.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="Logger.cpp" ex="false" tool="1" flavor2="0">
       </item>

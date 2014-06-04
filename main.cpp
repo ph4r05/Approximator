@@ -11,6 +11,7 @@
 #include "Approximation.h"
 #include "AESCipher.h"
 #include "CombinatiorialGenerator.h"
+#include "Keccak2.h"
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -43,6 +44,7 @@ int main(int argc, char** argv) {
             ("rounds,r",       po::value<int>()->default_value(-1)->implicit_value(-1), "Number of rounds of the cipher.")
             ("threads,t",      po::value<uint>()->default_value(1)->implicit_value(1),  "Number of threads to use for computation.")
             ("cube",           po::value<uint>()->default_value(0)->implicit_value(0),  "Starts cube attack.")
+            ("alg",            po::value<uint>()->default_value(0)->implicit_value(0),  "Algorithm to analyze. 0=AES, 1=Keccak.")
 //            ("out-file,o",     po::value<std::string>(),                                       "Output file to write encrypted data")
 //            ("input-files",    po::value<std::vector<std::string>>(),                          "Input files")
 //            ("create-table",   po::value<std::string>(),                                       "Create encryption/decryption tables");
@@ -73,10 +75,27 @@ int main(int argc, char** argv) {
     
     bool selftest = vm["self-test"].as<bool>();
     
+    // Algorithm to analyze.
+    ICipher * c;
+    
+    uint algId = vm["alg"].as<uint>();
+    switch(algId){
+        case 0: 
+            cout << "Algorithm=AES" << endl;
+            c = new AESCipher();
+            break;
+        case 1:
+            cout << "Algorithm=Keccak" << endl;
+            c = new Keccak2();
+            break;
+        default: 
+            cerr << "Unknown algorithm id="<<algId<<endl;
+            return 8;
+    }
+    
     // Prepare approximation object.
-    AESCipher c;
     if (vm.count("rounds")){
-        c.setNumRounds(vm["rounds"].as<int>());
+        c->setNumRounds(vm["rounds"].as<int>());
     }
     
     // Seed random number generator
@@ -88,7 +107,7 @@ int main(int argc, char** argv) {
     Approximation ap(orderLimit);
     
     // Set cipher
-    ap.setCipher(&c);
+    ap.setCipher(c);
     
     // Number of key bits set to 0.
     ap.setKeybitsToZero(vm["key-to-zero"].as<uint>());
@@ -102,6 +121,8 @@ int main(int argc, char** argv) {
     if (itest){
         cout << "Testing internal implementation" << endl;
         ap.selftestIndexing();
+        
+        delete c;
         return 0;
     }
     
@@ -148,6 +169,7 @@ int main(int argc, char** argv) {
         ap.deinitFGb();
     }
     
+    delete c;
     return 0;
 }
 
