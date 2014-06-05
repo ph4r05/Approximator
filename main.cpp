@@ -45,6 +45,7 @@ int main(int argc, char** argv) {
             ("threads,t",      po::value<uint>()->default_value(1)->implicit_value(1),  "Number of threads to use for computation.")
             ("cube",           po::value<uint>()->default_value(0)->implicit_value(0),  "Starts cube attack.")
             ("alg",            po::value<uint>()->default_value(0)->implicit_value(0),  "Algorithm to analyze. 0=AES, 1=Keccak.")
+            ("relations",      po::value<uint>()->default_value(128)->implicit_value(128),  "Number of relations finding rounds.")
 //            ("out-file,o",     po::value<std::string>(),                                       "Output file to write encrypted data")
 //            ("input-files",    po::value<std::vector<std::string>>(),                          "Input files")
 //            ("create-table",   po::value<std::string>(),                                       "Create encryption/decryption tables");
@@ -166,7 +167,7 @@ int main(int argc, char** argv) {
     if (cube>0){
         cout << "Cube attack" << endl;
         ap.initFGb(ap.getNumVariables());
-        ap.cubeAttack(cube, 1, 1);
+        ap.cubeAttack(cube, 1, vm["relations"].as<uint>());
         ap.deinitFGb();
     }
     

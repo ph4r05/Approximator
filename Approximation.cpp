@@ -1220,6 +1220,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     
     // Generate multiple relations for the key variables from the black-box function.
     for(uint relationIdx = 0; relationIdx < numRelations; relationIdx++){
+        cout << " Relation round=" << relationIdx << endl;
+        
         // Collect relations for the key variables.
         // For this current relation, we generate randomly wPlain-bit 
         // plaintext. 
@@ -1322,6 +1324,18 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 // If it is 0, not needed...
                 cout << "Result = ";
                 dumpHex(cout, oBuff, outputWidthUlong);
+                
+                // Detect if non-zero
+                bool iszero=true;
+                for(uint i=0; i<outputWidthUlong && iszero; i++){
+                    if (oBuff[i]!=0){
+                        iszero=false;
+                    }
+                }
+                
+                if (!iszero){
+                    cout << "    ----- NON ZERO RESULT -----" << endl;
+                }
             }
         }
     }
