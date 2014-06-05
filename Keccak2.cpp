@@ -3,6 +3,8 @@
 // A baseline Keccak (3rd round) implementation.
 
 #include "Keccak2.h"
+#include <iostream>
+using namespace std;
 
 const uint64_t keccakf_rndc[24] = 
 {
@@ -28,7 +30,7 @@ const int keccakf_piln[24] =
     15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1 
 };
 
-Keccak2::Keccak2() {
+Keccak2::Keccak2() : rounds(1), r(1024), c(576) {
 
 }
 
@@ -77,21 +79,21 @@ void Keccak2::keccakf(uint64_t st[25], int rounds) const
 }
 
 // compute a keccak hash (md) of given byte length from "in"
-
 int Keccak2::keccak(const uint8_t *in, int inlen, uint8_t *md, int mdlen) const
 {
-    uint64_t st[25];    
-    uint8_t temp[144];
     int i, rsiz, rsizw;
-
     rsiz = r;
     rsizw = rsiz / 8;
+    
+    uint64_t st[rsizw];    
+    uint8_t temp[rsiz];
     
     memset(st, 0, sizeof(st));
 
     for ( ; inlen >= rsiz; inlen -= rsiz, in += rsiz) {
-        for (i = 0; i < rsizw; i++)
+        for (i = 0; i < rsizw; i++){
             st[i] ^= ((uint64_t *) in)[i];
+        }
         keccakf(st, rounds);
     }
     
@@ -101,9 +103,10 @@ int Keccak2::keccak(const uint8_t *in, int inlen, uint8_t *md, int mdlen) const
     memset(temp + inlen, 0, rsiz - inlen);
     temp[rsiz - 1] |= 0x80;
 
-    for (i = 0; i < rsizw; i++)
+    for (i = 0; i < rsizw; i++){
         st[i] ^= ((uint64_t *) temp)[i];
-
+    }
+        
     keccakf(st, rounds);
 
     memcpy(md, st, mdlen);
@@ -114,8 +117,8 @@ int Keccak2::keccak(const uint8_t *in, int inlen, uint8_t *md, int mdlen) const
 int Keccak2::evaluate(const unsigned char *input, const unsigned char *key, unsigned char *output ) const {
     unsigned char in[200] = {0};
 
-    memcpy(in, input, 16);
-    memcpy(in + 16, key, 16);
+    memcpy(in,      input, 16);
+    memcpy(in + 16, key,   16);
 
     keccak(in, 200, output, 16);
 

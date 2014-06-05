@@ -127,6 +127,7 @@ int main(int argc, char** argv) {
     }
     
     // Compute coefficients.
+    cout << "Computing coefficients" << endl;
     ap.computeCoefficients(ap.getCoefficients());
         
     // Test approximation correctness
