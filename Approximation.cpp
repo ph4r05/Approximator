@@ -388,9 +388,7 @@ int Approximation::testPolynomialApproximation(unsigned long numSamples) const {
     ProgressMonitor pm(0.01);
     for(unsigned long i=0; i<numSamples; i++){
         // Generate cipher input at random.
-        for(unsigned int k=0; k<byteWidth; k++){ 
-            input[k] = (rand() % (0xffu+1)); 
-        }
+        randomBuffer(input, byteWidth);
         
         // Evaluate cipher.
         cip->evaluate(input, input + cip->getInputBlockSize(), outputCip);
@@ -505,18 +503,13 @@ void Approximation::genMessages() {
     ofstream cip3("cip_msgs.txt");
     
     // Generate key at random.
-    for(unsigned int i=0; i<cip->getKeyBlockSize(); i++){ 
-        key[i] = (rand() % (0xffu+1)); 
-    }
-    
+    randomBuffer(key, cip->getKeyBlockSize());
     dumpUchar(cip3, key, cip->getKeyBlockSize());
     
     // Generate tons of random messages.
     for(unsigned long i=0; i<16777216ul; i++){
         // Generate message at random.
-        for(unsigned int i=0; i<cip->getInputBlockSize(); i++){ 
-            finput[i] = (rand() % (0xffu+1)); 
-        }
+        randomBuffer(finput, cip->getInputBlockSize());
         
         cip->evaluate(finput, key, output);
         
@@ -1412,13 +1405,13 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     // Online-phase strategy: select random key (that we want to discover).
     // For each discovered relation g during the offline phase, evaluate 
     // it on the same cube (a lot of evaluations) on the cipher with specified key.
+    randomBuffer(key, cip->getKeyBlockSize());
     
     
     
     
-    
-    
-    
+    delete[] input;
+    delete[] key;
     delete[] output;
     delete[] termMask;
     delete[] keyCubes;

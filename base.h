@@ -96,6 +96,13 @@ void readUcharToUlong(const uchar * input, uint size, ULONG * iBuff);
  */
 void readUlongToUchar(uchar * output, uint size, const ULONG * iBuff);
 
+/**
+ * Fills given buffer with random values.
+ * @param buffer
+ * @param size
+ */
+void randomBuffer(uchar * buffer, uint size);
+
 template<class T>
 void dumpHex(std::ostream & c, const std::vector<T> & inp, unsigned int size, bool endl=1) {
     c << std::showbase // show the 0x prefix

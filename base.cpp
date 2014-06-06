@@ -27,3 +27,9 @@ void readUlongToUchar(uchar* output, uint size, const ULONG* iBuff) {
         output[x] = (iBuff[x/SIZEOF_ULONG] >> (8* (x % SIZEOF_ULONG))) & ((unsigned char)0xffu);
     }
 }
+
+void randomBuffer(uchar * buffer, uint size){
+    for(unsigned int k=0; k<size; k++){ 
+        buffer[k] = (rand() % (0x100ul)); 
+    }
+}
