@@ -200,6 +200,20 @@ public:
     int subCubeTerm(uint termWeight, const ULONG * termMask, const uchar * finput, ULONG * subcube,
         uint step, uint offset, bool includeTerm) const;
     
+    /**
+     * Threaded variant of subCubeTerm.
+     * Difference: Key is assumed to be constant, saved in finput...
+     * 
+     * @param termWeight
+     * @param termMask
+     * @param finput
+     * @param subcube
+     * @param step
+     * @param offset
+     * @param includeTerm
+     * @return 
+     */
+    int subCubeTermThreaded(uint termWeight, const ULONG * termMask, const uchar * finput, ULONG * subcube, bool includeTerm) const;
     
     int cubeAttack(uint wPlain, uint wKey, uint numRelations) const;
     

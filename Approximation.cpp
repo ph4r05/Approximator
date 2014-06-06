@@ -1192,11 +1192,76 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
     return 1;
 }
 
+int Approximation::subCubeTermThreaded(uint termWeight, const ULONG* termMask, 
+        const uchar* finput, ULONG* subcube, bool includeTerm) const
+{    
+    // Each thread will have separate ULONG output buffer.
+    ULONG * oThreadBuff = new ULONG[outputWidthUlong * threadCount];
+    
+    // Compute cubes in a parallel fashion.
+    // Split work among several threads.
+    // If only 1 thread is to be used, do not use threads at all.
+    // This is good for debugging computation code, since segfault in
+    // thread is more difficult to debug.
+    memset(subcube, 0, SIZEOF_ULONG * outputWidthUlong);
+    memset(oThreadBuff, 0, SIZEOF_ULONG * outputWidthUlong * threadCount);
+
+    // Pre-compute key, always the same.
+    cip->prepareKey(finput + cip->getInputBlockSize());
+
+    std::vector<std::thread> threads;
+    for(uint tidx = 0; threadCount > 1 && tidx < threadCount; tidx++){
+        // Create & start a new thread with its work partition.
+        // Definition of the thread function is using lambda expressions.
+        // See http://en.cppreference.com/w/cpp/language/lambda 
+        // for lambda expressions.
+        threads.push_back(std::thread(
+             [=](){
+                 this->subCubeTerm(
+                         termWeight, termMask, finput,
+                         oThreadBuff+(this->outputWidthUlong*tidx), // Thread output buffer.
+                         this->threadCount,                         // Step = thread count.
+                         tidx,                                      // Offset = thread index.
+                         includeTerm);                              // Include last term.
+            }));
+    }
+
+    // Join on threads, wait for the result.
+    if (threadCount>1){
+        for(auto& cthread : threads){
+            if (cthread.joinable()){
+                cthread.join();
+            } else {
+                cerr << " .!thread not joinable" << endl;
+            }
+        }
+    } else {
+        this->subCubeTerm(termWeight, termMask, finput, oThreadBuff, 1, 0, true);
+    }
+
+    // Assemble thread results to one single cube result.
+    // XOR all resulting sub-cubes into one cube.
+    for(uint tidx = 0; tidx < threadCount; tidx++){
+        //cout << " ...SubResult = ";
+        //dumpHex(cout, oThreadBuff + tidx*outputWidthUlong, outputWidthUlong);
+
+        for(uint octr=0; octr < outputWidthUlong; octr++){
+            subcube[octr] ^= oThreadBuff[tidx*outputWidthUlong + octr];
+        }
+    }
+    
+    delete[] oThreadBuff;
+    return 1;
+}
+
 int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     const uint numKeyBits = cip->getKeyBlockSize() * 8;
+    const uint sizePlaintextUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
+    const uint sizeKeyUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
     
     // Function input/output for evaluation.
     uchar * output = new uchar[cip->getOutputBlockSize()];
+    uchar * key    = new uchar[cip->getKeyBlockSize()];
     uchar * input  = new uchar[byteWidth];
     
     // Local ULONG output buffer (on stack).
@@ -1206,8 +1271,11 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     // Key relation is stored in coefficient array.
     std::vector<ULONG> coeffKey[wKey+1];
     
-    // Each thread will have separate ULONG output buffer.
-    ULONG * oThreadBuff = new ULONG[outputWidthUlong * threadCount];
+    // SubCubes for key bits.
+    std::vector<ULONG> * keyCubes = new std::vector<ULONG>[wKey+1];
+    
+    // Interesting key bits relations are stored in this array.
+    std::vector<ULONG> keyRelations;
     
     // Random variable bit vector = for constructing random terms.
     // In cube attack we are using plaintext variables.
@@ -1217,10 +1285,11 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     }
     
     cout << " Going to start cube, threads=" << threadCount << endl;
+    ULONG nonzeroCoutner=0;
     
     // Generate multiple relations for the key variables from the black-box function.
-    for(uint relationIdx = 0; relationIdx < numRelations; relationIdx++){
-        cout << " Relation round=" << relationIdx << endl;
+    for(uint relationIdx = 0; nonzeroCoutner < numRelations; relationIdx++){
+        //cout << "Relation round=" << relationIdx << endl;
         
         // Collect relations for the key variables.
         // For this current relation, we generate randomly wPlain-bit 
@@ -1237,6 +1306,15 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         for(unsigned int order = 0; order<=wKey; order++){
             ULONG vecSize = CombinatiorialGenerator::binomial(numKeyBits, order) * outputWidthUlong;
             coeffKey[order].assign(vecSize, (ULONG) 0);
+        }
+        
+        // TODO: During cube computation on the key, you have to compute also cube
+        // on the keys, so memorize lower key cubes for computation of the higher
+        // key cubes, note, all the time plaintext is the same.
+        // Initialize keycube vector space.
+        for(unsigned int order = 0; order<=wKey; order++){
+            ULONG vecSize = CombinatiorialGenerator::binomial(8*cip->getKeyBlockSize(), order) * outputWidthUlong;
+            keyCubes[order].assign(vecSize, (ULONG) 0);
         }
         
         // For each key, one plaintext cube has to be computed.
@@ -1257,92 +1335,93 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                     input[bitIdx / 8] |= 1u << (bitIdx % 8);
                 }
                 
-                cout << "Starting order=" << orderCtr << "; keyCombinationIdx=" << cg.getCounter() << "; all=" << cg.getTotalNum() <<  endl;
+                /*cout << "Starting order=" << orderCtr << "; keyCombinationIdx=" << cg.getCounter() << "; all=" << cg.getTotalNum() <<  endl;
                 cout << "Key = ";
                 dumpHex(cout, cg.getCurState(), orderCtr);
                 cout << "Plaintext = ";
-                dumpHex(cout, termMask, inputWidthUlong);
+                dumpHex(cout, termMask, inputWidthUlong);*/
                 
                 // Compute cubes in a parallel fashion.
-                // Split work among several threads.
-                // If only 1 thread is to be used, do not use threads at all.
-                // This is good for debugging computation code, since segfault in
-                // thread is more difficult to debug.
-                memset(oBuff, 0, SIZEOF_ULONG * outputWidthUlong);
-                memset(oThreadBuff, 0, SIZEOF_ULONG * outputWidthUlong * threadCount);
-                
-                // Pre-compute key, always the same.
-                cip->prepareKey(input + cip->getInputBlockSize());
-                
-                // Working threads array.
-                cout << " Starting working threads=" << threadCount << endl;
-                
-                std::vector<std::thread> threads;
-                for(uint tidx = 0; threadCount > 1 && tidx < threadCount; tidx++){
-                    
-                    // Create & start a new thread with its work partition.
-                    // Definition of the thread function is using lambda expressions.
-                    // See http://en.cppreference.com/w/cpp/language/lambda 
-                    // for lambda expressions.
-                    threads.push_back(std::thread(
-                         [=](){
-                             this->subCubeTerm(
-                                     wPlain, termMask, input,
-                                     oThreadBuff+(this->outputWidthUlong*tidx), // Thread output buffer.
-                                     this->threadCount,                         // Step = thread count.
-                                     tidx,                                      // Offset = thread index.
-                                     true);                                     // Include last term.
-                        }));
-                }
-                
-                // Join on threads, wait for the result.
-                if (threadCount>1){
-                    for(auto& cthread : threads){
-                        if (cthread.joinable()){
-                            cthread.join();
-                        } else {
-                            cout << " .!thread not joinable" << endl;
-                        }
-                    }
+                if (threadCount==1){
+                    this->subCubeTerm(wPlain, termMask, input, oBuff, 1, 0, true);
                 } else {
-                    this->subCubeTerm(wPlain, termMask, input, oThreadBuff, 1, 0, true);
+                    this->subCubeTermThreaded(wPlain, termMask, input, oBuff, true);
                 }
-                cout << " ..All threads finished" << endl;
                 
-                // Assemble thread results to one single cube result.
-                // XOR all resulting sub-cubes into one cube.
-                for(uint tidx = 0; tidx < threadCount; tidx++){
-                    cout << " ...SubResult = ";
-                    dumpHex(cout, oThreadBuff + tidx*outputWidthUlong, outputWidthUlong);
-                    
+                // TODO: XOR with key sub cubes already stored for this plaintext.
+                // TODO: generalize this. Exactly same logic is used in computeCoefficients.
+                // maybe generalize and extract logic behind cubing to separate helper method...
+                // For now we only XOR with zero key cube.
+                if (orderCtr>0){
                     for(uint octr=0; octr < outputWidthUlong; octr++){
-                        oBuff[octr] ^= oThreadBuff[tidx*outputWidthUlong + octr];
+                        oBuff[octr] ^= keyCubes[0][octr];
                     }
+                }
+                
+                // Store the keyCube result for higher cubes computation.
+                for(uint octr=0; octr < outputWidthUlong; octr++){
+                    keyCubes[orderCtr][outputWidthUlong*cg.getCounter() + octr] = oBuff[octr];
                 }
                 
                 // Check if this relation is useful.
                 // If it is 0, not needed...
-                cout << "Result = ";
-                dumpHex(cout, oBuff, outputWidthUlong);
+                //cout << "Result = ";
+                //dumpHex(cout, oBuff, outputWidthUlong);
                 
-                // Detect if non-zero
-                bool iszero=true;
-                for(uint i=0; i<outputWidthUlong && iszero; i++){
+                // Detect if non-zero, currently we are interested only in f_0.
+                // TODO: extends this procedure to general.
+                // TODO: in further generalized scenario, we would have to somehow compute
+                // number of relations we have for each key bit.
+                bool iszero = (oBuff[0] & ULONG1) == ((ULONG) 0);
+                
+                /*for(uint i=0; i<outputWidthUlong && iszero; i++){
                     if (oBuff[i]!=0){
                         iszero=false;
                     }
-                }
+                }*/
                 
-                if (!iszero){
-                    cout << "    ----- NON ZERO RESULT -----" << endl;
+                if (!iszero && orderCtr > 0){
+                    cout << "    ----- NON ZERO RESULT -------- key=";
+                    dumpHex(cout, cg.getCurState(), orderCtr);
+                    
+                    nonzeroCoutner+=1;
+                    
+                    // Add result to the relation storage.
+                    // Storage convention is to store plaintext, key bits and then ciphertext.
+                    for(uint octr=0; octr < sizePlaintextUlong; octr++){
+                        keyRelations.push_back(termMask[octr]);
+                    }
+                    for(uint octr=0; octr < sizeKeyUlong; octr++){
+                        ULONG tmpKey = 0u;
+                        
+                        // NOTE here we assume key size is divisible by ULONG.
+                        readUcharToUlong(input + cip->getInputBlockSize() + octr*SIZEOF_ULONG, SIZEOF_ULONG, &tmpKey);
+                        keyRelations.push_back(tmpKey);
+                    }
+                    for(uint octr=0; octr < this->outputWidthUlong; octr++){
+                        keyRelations.push_back(oBuff[octr]);
+                    }
                 }
             }
         }
     }
     
+    cout << "Number of nonzero equations: " << dec << nonzeroCoutner << endl;
+    
+    // Process found relations and try to solve the system online.
+    // Online-phase strategy: select random key (that we want to discover).
+    // For each discovered relation g during the offline phase, evaluate 
+    // it on the same cube (a lot of evaluations) on the cipher with specified key.
+    
+    
+    
+    
+    
+    
+    
     delete[] output;
-    delete[] oThreadBuff;
     delete[] termMask;
+    delete[] keyCubes;
     return 1;
 }
 
