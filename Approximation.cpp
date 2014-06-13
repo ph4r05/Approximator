@@ -1404,7 +1404,6 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             cout << "|" << numSuperpolys << flush;
         }
         
-        //dumpHex(cout, isSuperpoly, outputWidthUlong);
         if (numSuperpolys > 0 && (isSuperpoly[0] & ULONG1) == ULONG1){
             cout << "    ----- Have superpoly --------; num=" << numSuperpolys
                     << "; total=" << nonzeroCoutner << endl;
@@ -1435,7 +1434,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             sigset_t originalMask;
             sigemptyset(&originalMask);
             sigprocmask(SIG_BLOCK, &blockingMask, &originalMask);
-            cout << "<save>" << flush;
+            cout << "<save" << flush;
             
             {
                 std::ofstream ofs(fcacheNameStr.c_str()); //assert(ofs.good());
@@ -1443,7 +1442,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 oa << BOOST_SERIALIZATION_NVP(keyRelationsVector);
             }
             
-            cout << "</save>" << endl;
+            cout << "/>" << endl;
             sigprocmask(SIG_BLOCK, &originalMask, NULL);
         }
     }
@@ -1473,6 +1472,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     vec_GF2 b(INIT_SIZE, nonzeroCoutner);
     // System of the equations to solve.
     mat_GF2 systm(INIT_SIZE, nonzeroCoutner, numKeyBits);
+    mat_GF2 systmGauss(INIT_SIZE, nonzeroCoutner, numKeyBits+1);
     // Add polynomial to the systm matrix, constant term to the b vector.
     uint curRow=0;
     for (std::vector<CubeRelations_t>::iterator it = keyRelations.begin() ; it != keyRelations.end(); ++it, ++curRow){
@@ -1489,12 +1489,12 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         // b_t is stored in vectorized form (for each f_i) in oBuff.
         const bool b_t = (oBuff[0] & ULONG1) == ULONG1;
         const bool c   = (it->superpolys[0][0] & ULONG1) == ULONG1;
-        b.put(curRow, c ^ b_t);
+        systmGauss.put(curRow, numKeyBits, c ^ b_t);
         
         // Now init the system of equations.
         for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
             const bool ai = (it->superpolys[1][varIdx*outputWidthUlong] & ULONG1) == ULONG1;
-            systm.put(curRow, varIdx, ai);
+            systmGauss.put(curRow, varIdx, ai);
         }
     }
     
@@ -1505,10 +1505,23 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     GF2 determinant;
     vec_GF2 solution;
     
-    solve(determinant, solution, systm, b);
-    if (IsZero(determinant)){
-        cout << "   Determinant is zero, cannot solve this system." << endl;
+    // At first try running gauss() in order to get rank of the system.
+    long rank = gauss(systmGauss);
+    cout << "Gaussian elimination performed on the system matrix, rank=" << dec << rank << endl;
+    if (rank < numKeyBits){
+        cout << " Cannot solve the system, rank is too low" << endl;
     } else {
+        // Transfer first numKeyBits rows to the systm matrix and b vector.
+        for(uint idx=0; idx < numKeyBits; idx++){
+            b.put(idx, systmGauss.get(idx, numKeyBits));
+            for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
+                systm.put(idx, varIdx, systmGauss.get(idx, varIdx));
+            }
+        }
+        
+        solve(determinant, solution, systm, b);
+        assert(IsZero(determinant)==false);
+    
         // We have solution, convert it to the uchar array and dump in hexa and in the binary.
         const uint solByteSize = (uint)ceil(numKeyBits/8.0);
         memset(solvedKey, 0x0, solByteSize);
