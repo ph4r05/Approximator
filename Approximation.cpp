@@ -1134,15 +1134,15 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
     const uint outByteWidth = cip->getOutputBlockSize();
     
     // Function input/output for evaluation.
-    uchar * output = new uchar[cip->getOutputBlockSize()];
-    uchar * input  = new uchar[byteWidth];
+    uchar output[cip->getOutputBlockSize()];
+    uchar input[byteWidth];
     
     // Local ULONG output buffer (on stack).
     ULONG sCube[outputWidthUlong];
     
     // Buffer stores mapping to the term bit positions present in term.
     // Used for mapping from termWeight combinations to numVariables combinations.
-    ULONG * termBitPositions = new ULONG[termWeight];
+    uint termBitPositions[termWeight];
     for(uint pos=0, bpos=0; pos<bitWidth ; pos++){
         const ULONG bmask = (ULONG1 << (pos % (8*SIZEOF_ULONG)));
         if ((termMask[(pos / (8*SIZEOF_ULONG))] & bmask) != bmask) continue;
@@ -1201,11 +1201,7 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
         }
     }
     
-    memcpy(subcube, sCube, SIZEOF_ULONG * this->outputWidthUlong);
-    delete[] output;
-    delete[] input;
-    delete[] termBitPositions;
-    
+    memcpy(subcube, sCube, SIZEOF_ULONG * this->outputWidthUlong);    
     return 1;
 }
 
@@ -1375,7 +1371,12 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 dumpHex(cout, input, byteWidth);//*/
                 
                 // Compute cubes in a parallel fashion.
-                this->subCubeTermThreaded(wPlain, termMask, input, oBuff, true);
+                if (threadCount>1){
+                    this->subCubeTermThreaded(wPlain, termMask, input, oBuff, true);
+                } else {
+                    cip->prepareKey(input + cip->getInputBlockSize());
+                    this->subCubeTerm(wPlain, termMask, input, oBuff, 1, 0, true, false);
+                }
                 
                 // TODO: XOR with key sub cubes already stored for this plaintext.
                 // TODO: generalize this. Exactly same logic is used in computeCoefficients.
