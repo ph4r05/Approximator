@@ -1325,7 +1325,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     // Generate multiple relations for the key variables from the black-box function.
     for(uint relationIdx = 0; nonzeroCoutner < numRelations; relationIdx++){
         //cout << "Relation round=" << relationIdx << endl;
-        cout << "." << flush;
+        //cout << "." << flush;
         
         // Collect relations for the key variables.
         // For this current relation, we generate randomly wPlain-bit 
@@ -1428,7 +1428,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         
         //dumpHex(cout, isSuperpoly, outputWidthUlong);
         if (numSuperpolys > 0 && (isSuperpoly[0] & ULONG1) == ULONG1){
-            cout << "    ----- Have superpoly --------; num=" << numSuperpolys << endl;
+            cout << "    ----- Have superpoly --------; num=" << numSuperpolys
+                    << "; total=" << nonzeroCoutner << endl;
             
             nonzeroCoutner+=1;
             CubeRelations_t toInsert, *cur;
@@ -1458,9 +1459,11 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             sigprocmask(SIG_BLOCK, &blockingMask, &originalMask);
             cout << "<save>" << flush;
             
-            std::ofstream ofs(fcacheNameStr.c_str()); //assert(ofs.good());
-            boost::archive::xml_oarchive oa(ofs);
-            oa << BOOST_SERIALIZATION_NVP(keyRelationsVector);
+            {
+                std::ofstream ofs(fcacheNameStr.c_str()); //assert(ofs.good());
+                boost::archive::xml_oarchive oa(ofs);
+                oa << BOOST_SERIALIZATION_NVP(keyRelationsVector);
+            }
             
             cout << "</save>" << endl;
             sigprocmask(SIG_BLOCK, &originalMask, NULL);
