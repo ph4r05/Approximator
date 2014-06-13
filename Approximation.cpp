@@ -1105,7 +1105,7 @@ int Approximation::partialEvaluation(const std::vector<ULONG> * coefficients,
 }
 
 int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uchar* finput, 
-        ULONG* subcube, uint step, uint offset, bool includeTerm) const {
+        ULONG* subcube, uint step, uint offset, bool includeTerm, bool precompKey) const {
     const uint bitWidth = 8*byteWidth;
     const uint outByteWidth = cip->getOutputBlockSize();
     
@@ -1131,7 +1131,7 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
     // If the last bit position is not in the key block,
     // this optimization can be performed.
     // Key is pre-computed in the calling method in order to avoid race conditions.
-    bool precomputedKey = termWeight==0 || (termBitPositions[termWeight-1] < (8*cip->getInputBlockSize()));
+    bool precomputedKey = precompKey && (termWeight==0 || (termBitPositions[termWeight-1] < (8*cip->getInputBlockSize())));
     
     // Reset output cube.
     memset(sCube, 0, SIZEOF_ULONG * this->outputWidthUlong);
@@ -1215,7 +1215,8 @@ int Approximation::subCubeTermThreaded(uint termWeight, const ULONG* termMask,
                          oThreadBuff+(this->outputWidthUlong*tidx), // Thread output buffer.
                          this->threadCount,                         // Step = thread count.
                          tidx,                                      // Offset = thread index.
-                         includeTerm);                              // Include last term.
+                         includeTerm,                               // Include last term.
+                         false);                                    // Precomputed key?
             }));
     }
 
@@ -1229,7 +1230,7 @@ int Approximation::subCubeTermThreaded(uint termWeight, const ULONG* termMask,
             }
         }
     } else {
-        this->subCubeTerm(termWeight, termMask, finput, oThreadBuff, 1, 0, true);
+        this->subCubeTerm(termWeight, termMask, finput, oThreadBuff, 1, 0, true, false);
     }
 
     // Assemble thread results to one single cube result.
@@ -1268,7 +1269,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     std::vector<ULONG> * keyCubes = new std::vector<ULONG>[wKey+1];
     
     // Interesting key bits relations are stored in this array.
-    std::vector<ULONG> keyRelations;
+    std::vector<CubeRelations_t> keyRelations;
     
     // Random variable bit vector = for constructing random terms.
     // In cube attack we are using plaintext variables.
@@ -1283,6 +1284,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     // Generate multiple relations for the key variables from the black-box function.
     for(uint relationIdx = 0; nonzeroCoutner < numRelations; relationIdx++){
         //cout << "Relation round=" << relationIdx << endl;
+        cout << "." << flush;
         
         // Collect relations for the key variables.
         // For this current relation, we generate randomly wPlain-bit 
@@ -1310,11 +1312,18 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             keyCubes[order].assign(vecSize, (ULONG) 0);
         }
         
+        // Collects superpolys according to the paper.
+        ULONG isSuperpoly[outputWidthUlong];
+        memset(isSuperpoly, 0, SIZEOF_ULONG * outputWidthUlong);
+        
+        /*cout << "Plaintext = ";
+        dumpHex(cout, termMask, inputWidthUlong);*/
+        
         // For each key, one plaintext cube has to be computed.
         ULONG globalCtr = 0;
         for(uint orderCtr=0; orderCtr <= wKey; orderCtr++){
             // Current order to XOR is orderCtr.
-            CombinatiorialGenerator cg(numKeyBits, orderCtr);
+            CombinatiorialGenerator cg(numKeyBits, orderCtr);            
             for(; cg.next(); globalCtr++){
                 // Array of the key variables.
                 const ULONG * keyVars = cg.getCurState();
@@ -1331,15 +1340,11 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 /*cout << "Starting order=" << orderCtr << "; keyCombinationIdx=" << cg.getCounter() << "; all=" << cg.getTotalNum() <<  endl;
                 cout << "Key = ";
                 dumpHex(cout, cg.getCurState(), orderCtr);
-                cout << "Plaintext = ";
-                dumpHex(cout, termMask, inputWidthUlong);*/
+                cout << "Input = ";
+                dumpHex(cout, input, byteWidth);//*/
                 
                 // Compute cubes in a parallel fashion.
-                if (threadCount==1){
-                    this->subCubeTerm(wPlain, termMask, input, oBuff, 1, 0, true);
-                } else {
-                    this->subCubeTermThreaded(wPlain, termMask, input, oBuff, true);
-                }
+                this->subCubeTermThreaded(wPlain, termMask, input, oBuff, true);
                 
                 // TODO: XOR with key sub cubes already stored for this plaintext.
                 // TODO: generalize this. Exactly same logic is used in computeCoefficients.
@@ -1356,45 +1361,51 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                     keyCubes[orderCtr][outputWidthUlong*cg.getCounter() + octr] = oBuff[octr];
                 }
                 
-                // Check if this relation is useful.
-                // If it is 0, not needed...
-                //cout << "Result = ";
-                //dumpHex(cout, oBuff, outputWidthUlong);
-                
-                // Detect if non-zero, currently we are interested only in f_0.
-                // TODO: extends this procedure to general.
                 // TODO: in further generalized scenario, we would have to somehow compute
                 // number of relations we have for each key bit.
-                bool iszero = (oBuff[0] & ULONG1) == ((ULONG) 0);
+                /*cout << "  out["<< cg.getCounter() <<"]=";
+                dumpHex(cout, oBuff, outputWidthUlong);//*/
                 
-                /*for(uint i=0; i<outputWidthUlong && iszero; i++){
-                    if (oBuff[i]!=0){
-                        iszero=false;
-                    }
-                }*/
-                
-                if (!iszero && orderCtr > 0){
-                    cout << "    ----- NON ZERO RESULT -------- key=";
-                    dumpHex(cout, cg.getCurState(), orderCtr);
-                    
-                    nonzeroCoutner+=1;
-                    
-                    // Add result to the relation storage.
-                    // Storage convention is to store plaintext, key bits and then ciphertext.
-                    for(uint octr=0; octr < sizePlaintextUlong; octr++){
-                        keyRelations.push_back(termMask[octr]);
-                    }
-                    for(uint octr=0; octr < sizeKeyUlong; octr++){
-                        ULONG tmpKey = 0u;
-                        
-                        // NOTE here we assume key size is divisible by ULONG.
-                        readUcharToUlong(input + cip->getInputBlockSize() + octr*SIZEOF_ULONG, SIZEOF_ULONG, &tmpKey);
-                        keyRelations.push_back(tmpKey);
-                    }
-                    for(uint octr=0; octr < this->outputWidthUlong; octr++){
-                        keyRelations.push_back(oBuff[octr]);
-                    }
+                //
+                // This relation is interesting only if there is at least one
+                // linear relation in it...
+                for(uint i=0; orderCtr>0 && i<outputWidthUlong; i++){
+                    isSuperpoly[i] |= oBuff[i];
                 }
+            }
+        }
+            
+        // Superpoly relations are stored to the keyRelations structure.
+        // Format is the following:
+        //   plaintext bits
+        //   order 0 key relations (constant c)
+        //   order 1 key relations (a1, a2, ..., an)
+        uint numSuperpolys=hamming_weight_array(isSuperpoly, outputWidthUlong);
+        cout << "|" << numSuperpolys << flush;
+        //dumpHex(cout, isSuperpoly, outputWidthUlong);
+        if (numSuperpolys > 0 && (isSuperpoly[0] & ULONG1) == ULONG1){
+            cout << "    ----- Have superpoly --------; num=" << numSuperpolys << endl;
+            
+            nonzeroCoutner+=1;
+            CubeRelations_t toInsert, *cur;
+            keyRelations.push_back(toInsert);
+            cur = &(keyRelations.at(nonzeroCoutner-1));
+            cur->numSuperpolys = numSuperpolys;
+            
+            // Copy plaintext
+            for(uint octr=0; octr < sizePlaintextUlong; octr++){
+                cur->termMask.push_back(termMask[octr]);
+            }
+            
+            // Copy superpoly bitmask.
+            for(uint octr=0; octr < outputWidthUlong; octr++){
+                cur->isSuperpoly.push_back(isSuperpoly[octr]);
+            }
+            
+            // Copy superpoly
+            for(uint orderCtr=0; orderCtr <= wKey; orderCtr++){
+                cur->superpolys[orderCtr] = keyCubes[orderCtr];
+                
             }
         }
     }
@@ -1407,6 +1418,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     // it on the same cube (a lot of evaluations) on the cipher with specified key.
     randomBuffer(key, cip->getKeyBlockSize());
     
+    // Iterate over found relations, cube them with the key, get the 
+    // result of the polynomial.
     
     
     

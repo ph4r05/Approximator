@@ -22,6 +22,9 @@
 // Maximum order of terms.
 #define MAX_ORDER 6
 
+// Maximal order used during cube attack.
+#define MAX_SUPERPOLY_ORDER 2
+
 //
 // FGb
 //
@@ -198,7 +201,7 @@ public:
      * @return 
      */
     int subCubeTerm(uint termWeight, const ULONG * termMask, const uchar * finput, ULONG * subcube,
-        uint step, uint offset, bool includeTerm) const;
+        uint step, uint offset, bool includeTerm, bool precompKey) const;
     
     /**
      * Threaded variant of subCubeTerm.
@@ -260,6 +263,17 @@ public:
     
     void genMessages();
 };
+
+typedef struct CubeRelations_t_ {
+    // Public variables (plaintext bits)
+    std::vector<ULONG> termMask;
+    // Bitmask of output polynomials having superpoly in this polynomial.
+    std::vector<ULONG> isSuperpoly;
+    // Hamming weight of the vector above.
+    uint numSuperpolys;
+    // Superpolys for each output polynomial (vectorized representation).
+    std::vector<ULONG> superpolys[MAX_SUPERPOLY_ORDER];
+} CubeRelations_t;
 
 #endif	/* APPROXIMATION_H */
 

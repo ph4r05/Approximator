@@ -103,6 +103,65 @@ void readUlongToUchar(uchar * output, uint size, const ULONG * iBuff);
  */
 void randomBuffer(uchar * buffer, uint size);
 
+/**
+ * Computes Hamming weight of the numeric type. 
+ * For more inspiration take a look at http://bisqwit.iki.fi/source/misc/bitcounting/
+ * 
+ * @param N
+ * @return 
+ */
+template<class T>
+uint hamming_weight(T n){
+    uint result=0;
+    while(n){
+        result++;
+        n &= n-1;   // Zero the lowest-order one-bit
+    }
+    return result;
+}
+
+/**
+ * Computes hamming weight of the numeric array
+ * @param n
+ * @param size
+ * @return 
+ */
+template<class T>
+uint hamming_weight_array(const T * arr, uint size){
+    uint result=0;
+    for(uint i=0; i<size; i++){
+        T n = arr[i];
+        while(n){
+            result++;
+            n &= n-1;   // Zero the lowest-order one-bit
+        }
+    }
+    return result;
+}
+
+/**
+ * Computes Hamming weight of the numeric type. 
+ * Nifty parallel counting. 
+ * 
+ * For more inspiration take a look at http://bisqwit.iki.fi/source/misc/bitcounting/
+ * @return 
+ */
+template<class TestType>
+uint hamming_weight_fast(TestType n){
+    const unsigned TEST_BITS = sizeof(TestType) * 8;
+    TestType m1 = (~(TestType)0) / 3;   // Binary 01010101...
+    TestType m2 = (~(TestType)0) / 5;   // Binary 00110011...
+    TestType m4 = (~(TestType)0) / 17;  // Binary 00001111...
+    TestType h01 = (~(TestType)0) / 255; // Hex 0101...
+
+    n = (n & m1) + ((n >> 1) & m1);
+    n = (n & m2) + ((n >> 2) & m2);
+    n = (n & m4) + ((n >> 4) & m4);
+
+    return (n * h01) >> (TEST_BITS-8);
+    // ^incidentally same as n % 255
+}
+
 template<class T>
 void dumpHex(std::ostream & c, const std::vector<T> & inp, unsigned int size, bool endl=1) {
     c << std::showbase // show the 0x prefix
