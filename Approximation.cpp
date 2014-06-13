@@ -91,6 +91,10 @@ void Approximation::init() {
     sigaddset(&blockingMask, SIGHUP);
     sigaddset(&blockingMask, SIGTERM);
     sigaddset(&blockingMask, SIGQUIT);
+    sigaddset(&blockingMask, SIGINT);   // CTRL+C
+    sigaddset(&blockingMask, SIGABRT);
+    sigaddset(&blockingMask, SIGUSR1);
+    sigaddset(&blockingMask, SIGUSR2);
 }
 
 bool Approximation::isPoly2Take(uint polyIdx) const {
@@ -1443,7 +1447,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             }
             
             cout << "/>" << endl;
-            sigprocmask(SIG_BLOCK, &originalMask, NULL);
+            sigprocmask(SIG_SETMASK, &originalMask, NULL);
         }
     }
     
