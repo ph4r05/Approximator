@@ -1271,26 +1271,22 @@ int Approximation::subCubeTermThreaded(uint termWeight, const ULONG* termMask,
 int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     const uint numKeyBits = cip->getKeyBlockSize() * 8;
     const uint sizePlaintextUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
-    const uint sizeKeyUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
+    //const uint sizeKeyUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
     
     // Function input/output for evaluation.
     uchar * output = new uchar[cip->getOutputBlockSize()];
     uchar * key    = new uchar[cip->getKeyBlockSize()];
     uchar * input  = new uchar[byteWidth];
+    uchar * solvedKey = new uchar[cip->getKeyBlockSize()];
     
     // Local ULONG output buffer (on stack).
     ULONG oBuff[outputWidthUlong];
+    // Plaintext buffer.
     ULONG * termMask = new ULONG[inputWidthUlong];
-
-    // Key relation is stored in coefficient array.
-    std::vector<ULONG> coeffKey[wKey+1];
-    
-    // SubCubes for key bits.
+    // SubCubes for key bits - result of approximation for one particular plaintext.
     std::vector<ULONG> * keyCubes = new std::vector<ULONG>[wKey+1];
-    
-    // Interesting key bits relations are stored in this array.
+    // Interesting key bits relations are stored in this array, serializes to a file.
     CubeRelations_vector keyRelationsVector;
-    
     // Random variable bit vector = for constructing random terms.
     // In cube attack we are using plaintext variables.
     std::vector<uint> vars;
@@ -1337,13 +1333,6 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             termMask[bitIdx / (8*SIZEOF_ULONG)] |= ULONG1 << (bitIdx % (8*SIZEOF_ULONG));
         }
         
-        // Plaintext is fixed, determine key variables present in the high order term.
-        // Allocate space for key coefficients & reset to zero.
-        for(unsigned int order = 0; order<=wKey; order++){
-            ULONG vecSize = CombinatiorialGenerator::binomial(numKeyBits, order) * outputWidthUlong;
-            coeffKey[order].assign(vecSize, (ULONG) 0);
-        }
-        
         // TODO: During cube computation on the key, you have to compute also cube
         // on the keys, so memorize lower key cubes for computation of the higher
         // key cubes, note, all the time plaintext is the same.
@@ -1353,12 +1342,9 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             keyCubes[order].assign(vecSize, (ULONG) 0);
         }
         
-        // Collects superpolys according to the paper.
+        // Collects superpolys according to the paper, reset for each plaintext.
         ULONG isSuperpoly[outputWidthUlong];
         memset(isSuperpoly, 0, SIZEOF_ULONG * outputWidthUlong);
-        
-        /*cout << "Plaintext = ";
-        dumpHex(cout, termMask, inputWidthUlong);*/
         
         // For each key, one plaintext cube has to be computed.
         ULONG globalCtr = 0;
@@ -1402,11 +1388,6 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                     keyCubes[orderCtr][outputWidthUlong*cg.getCounter() + octr] = oBuff[octr];
                 }
                 
-                // TODO: in further generalized scenario, we would have to somehow compute
-                // number of relations we have for each key bit.
-                /*cout << "  out["<< cg.getCounter() <<"]=";
-                dumpHex(cout, oBuff, outputWidthUlong);//*/
-                
                 //
                 // This relation is interesting only if there is at least one
                 // linear relation in it...
@@ -1417,10 +1398,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         }
             
         // Superpoly relations are stored to the keyRelations structure.
-        // Format is the following:
-        //   plaintext bits
-        //   order 0 key relations (constant c)
-        //   order 1 key relations (a1, a2, ..., an)
+        // Format is prescribed by the serialization of the class (uses BOOST serialization):
         uint numSuperpolys=hamming_weight_array(isSuperpoly, outputWidthUlong);
         if (numSuperpolys>0){
             cout << "|" << numSuperpolys << flush;
@@ -1437,7 +1415,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             cur = &(keyRelations.at(nonzeroCoutner-1));
             cur->numSuperpolys = numSuperpolys;
             
-            // Copy plaintext
+            // Copy plaintext.
             for(uint octr=0; octr < sizePlaintextUlong; octr++){
                 cur->termMask.push_back(termMask[octr]);
             }
@@ -1447,12 +1425,12 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 cur->isSuperpoly.push_back(isSuperpoly[octr]);
             }
             
-            // Copy superpoly
+            // Copy superpoly vectors.
             for(uint orderCtr=0; orderCtr <= wKey; orderCtr++){
                 cur->superpolys[orderCtr] = keyCubes[orderCtr];
             }
             
-            // Rewrite the archive with storage info.
+            // Rewrite the archive with the updated keyRelations.
             // Block signals during save in order to avoid storage corruption.
             sigset_t originalMask;
             sigemptyset(&originalMask);
@@ -1474,18 +1452,82 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     
     // Process found relations and try to solve the system online.
     // Online-phase strategy: select random key (that we want to discover).
-    // For each discovered relation g during the offline phase, evaluate 
-    // it on the same cube (a lot of evaluations) on the cipher with specified key.
     randomBuffer(key, cip->getKeyBlockSize());
+    // Prepare input - paste key into it.
+    memset(input, 0, byteWidth);
+    memcpy(input + cip->getInputBlockSize(), key, cip->getOutputBlockSize());
+    cout << "Input ready="; dumpHex(cout, input, byteWidth);
     
-    // Iterate over found relations, cube them with the key, get the 
-    // result of the polynomial.
+    // Online phase of the attack. Key is fixed, goal is to determine it.
+    // We have to determine b_t for each relation:
+    //
+    // \Sum_{v \in C_t} f(v,x) = b_t
+    // a_1x_1 + a_2x_2 + \dots + a_nx_n + c = b_t       (this is for one relation)
+    // 
+    // From this we get system of n variables and more than n equations we want 
+    // to solve with GB or Gaussian elimination.
+    //
+    // Note: For now we are using only f_0.
     
+    // Right side of the system is stored here. It is c+b_t.
+    vec_GF2 b(INIT_SIZE, nonzeroCoutner);
+    // System of the equations to solve.
+    mat_GF2 systm(INIT_SIZE, nonzeroCoutner, numKeyBits);
+    // Add polynomial to the systm matrix, constant term to the b vector.
+    uint curRow=0;
+    for (std::vector<CubeRelations_t>::iterator it = keyRelations.begin() ; it != keyRelations.end(); ++it, ++curRow){
+        // Copy plaintext
+        memset(termMask, 0, SIZEOF_ULONG * inputWidthUlong);
+        for(uint tidx=0; tidx<sizePlaintextUlong; tidx++){
+            termMask[tidx] = it->termMask[tidx];
+        }
+        
+        cout << "Solving plaintext cube["<<wPlain<<"]="; dumpHex(cout, termMask, inputWidthUlong);
+        
+        // Has to cube f(v,x) for C_t in order to obtain b_t.
+        this->subCubeTermThreaded(wPlain, termMask, input, oBuff, true);
+        // b_t is stored in vectorized form (for each f_i) in oBuff.
+        const bool b_t = (oBuff[0] & ULONG1) == ULONG1;
+        const bool c   = (it->superpolys[0][0] & ULONG1) == ULONG1;
+        b.put(curRow, c ^ b_t);
+        
+        // Now init the system of equations.
+        for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
+            const bool ai = (it->superpolys[1][varIdx*outputWidthUlong] & ULONG1) == ULONG1;
+            systm.put(curRow, varIdx, ai);
+        }
+    }
     
+    //dumpVector(b);
+    //dumpMatrix(systm);
+    
+    // Try to solve the system
+    GF2 determinant;
+    vec_GF2 solution;
+    
+    solve(determinant, solution, systm, b);
+    if (IsZero(determinant)){
+        cout << "   Determinant is zero, cannot solve this system." << endl;
+    } else {
+        // We have solution, convert it to the uchar array and dump in hexa and in the binary.
+        const uint solByteSize = (uint)ceil(numKeyBits/8.0);
+        memset(solvedKey, 0x0, solByteSize);
+
+        for(uint i=0; i<numKeyBits; i++){
+            if (IsOne(solution.get(i))){
+                solvedKey[i/8] |= 1u << (i%8);
+            }
+        }
+
+        cout << "   We have the solution:" << endl;
+        dumpHex(cout, solvedKey, solByteSize);
+        dumpBin(cout, solvedKey, solByteSize);
+    }
     
     delete[] input;
     delete[] key;
     delete[] output;
+    delete[] solvedKey;
     delete[] termMask;
     delete[] keyCubes;
     return 1;
