@@ -302,13 +302,18 @@ public:
 
 class CubeRelations_vector {
 public:
-    // Public variables (plaintext bits)
+    // Public variables (plaintext bits).
     std::vector<CubeRelations_t> stor;
+    // Total number of relations stored (for all polynomials together).
+    uint totalRelations;
     
-    CubeRelations_vector() {}
+    CubeRelations_vector() : totalRelations(0) {}
     virtual ~CubeRelations_vector() {}
     
     std::vector<CubeRelations_t> & get() { return stor; }
+    uint getTotal() const { return totalRelations;    }
+    void setTotal(uint t) { this->totalRelations = t; }
+    uint * getTotalPtr()  { return &totalRelations; }
     
     friend class boost::serialization::access;
     // When the class Archive corresponds to an output archive, the
@@ -317,6 +322,7 @@ public:
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)
     {
+        ar & BOOST_SERIALIZATION_NVP(totalRelations);
         ar & BOOST_SERIALIZATION_NVP(stor);
     }
 };

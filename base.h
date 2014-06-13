@@ -232,4 +232,15 @@ inline void dumpUcharHex(std::ostream & c, const uchar* inp, unsigned int size, 
 inline void dumpUlongHex(std::ostream & c, const ULONG* inp, unsigned int size, bool endl=1){ dumpHex(c, inp, size, endl); }
 void dumpUchar   (std::ostream & c, const uchar * inp, unsigned int size, bool endl=1);
 
+/**
+ * Computes number of bits that matches.
+ * 
+ * @param a
+ * @param b
+ * @param bitPosStart
+ * @param bitPosEnd
+ * @return 
+ */
+uint numBitMatches(const uchar * a, const uchar * b, uint bitPosStart, uint bitPosEnd, uint offsetA=0, uint offsetB=0);
+
 #endif	/* BASE_H */

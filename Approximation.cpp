@@ -1278,6 +1278,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     uchar * key    = new uchar[cip->getKeyBlockSize()];
     uchar * input  = new uchar[byteWidth];
     uchar * solvedKey = new uchar[cip->getKeyBlockSize()];
+    bool takeAllPolynomials = true; // If true relations from all polynomials are taken.
     
     // Local ULONG output buffer (on stack).
     ULONG oBuff[outputWidthUlong];
@@ -1295,7 +1296,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     }
     
     cout << " Going to start cube, threads=" << threadCount << endl;
-    ULONG nonzeroCoutner=0;
+    uint nonzeroCoutner=0;
+    uint totalRelations=0;
     
     // Cube attack caches found relations to the file since it is not that fast 
     // to find them and in order to enable interrupted computation.
@@ -1316,7 +1318,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     
     std::vector<CubeRelations_t> & keyRelations = keyRelationsVector.get();
     nonzeroCoutner = keyRelations.size();
-    cout << " Loaded " << nonzeroCoutner << " relations from the file; " << endl;
+    totalRelations = keyRelationsVector.getTotal();
+    cout << " Loaded " << nonzeroCoutner << " relations from the file; total=" << totalRelations << endl;
     
     // Generate multiple relations for the key variables from the black-box function.
     for(uint relationIdx = 0; nonzeroCoutner < numRelations; relationIdx++){
@@ -1409,11 +1412,13 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             cout << "|" << numSuperpolys << flush;
         }
         
-        if (numSuperpolys > 0 && (isSuperpoly[0] & ULONG1) == ULONG1){
+        if (numSuperpolys > 0 && (takeAllPolynomials || ((isSuperpoly[0] & ULONG1) == ULONG1))){
             cout << "    ----- Have superpoly --------; num=" << numSuperpolys
-                    << "; total=" << nonzeroCoutner << endl;
+                    << "; soFar=" << nonzeroCoutner 
+                    << "; total=" << totalRelations << endl;
             
             nonzeroCoutner+=1;
+            totalRelations+=numSuperpolys;
             CubeRelations_t toInsert, *cur;
             keyRelations.push_back(toInsert);
             cur = &(keyRelations.at(nonzeroCoutner-1));
@@ -1444,6 +1449,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             {
                 std::ofstream ofs(fcacheNameStr.c_str()); //assert(ofs.good());
                 boost::archive::xml_oarchive oa(ofs);
+                keyRelationsVector.setTotal(totalRelations);
                 oa << BOOST_SERIALIZATION_NVP(keyRelationsVector);
             }
             
@@ -1471,16 +1477,16 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     // From this we get system of n variables and more than n equations we want 
     // to solve with GB or Gaussian elimination.
     //
-    // Note: For now we are using only f_0.
+    // Note: For now we are using only f_0 if takeAllPolynomials is enabled.
     
     // Right side of the system is stored here. It is c+b_t.
-    vec_GF2 b(INIT_SIZE, nonzeroCoutner);
+    vec_GF2 b(INIT_SIZE, numKeyBits);
     // System of the equations to solve.
-    mat_GF2 systm(INIT_SIZE, nonzeroCoutner, numKeyBits);
-    mat_GF2 systmGauss(INIT_SIZE, nonzeroCoutner, numKeyBits+1);
+    mat_GF2 systm(INIT_SIZE, numKeyBits, numKeyBits);
+    mat_GF2 systmGauss(INIT_SIZE, totalRelations, numKeyBits+1);
     // Add polynomial to the systm matrix, constant term to the b vector.
     uint curRow=0;
-    for (std::vector<CubeRelations_t>::iterator it = keyRelations.begin() ; it != keyRelations.end(); ++it, ++curRow){
+    for (std::vector<CubeRelations_t>::iterator it = keyRelations.begin() ; it != keyRelations.end(); ++it){
         // Copy plaintext
         memset(termMask, 0, SIZEOF_ULONG * inputWidthUlong);
         for(uint tidx=0; tidx<sizePlaintextUlong; tidx++){
@@ -1491,20 +1497,34 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         
         // Has to cube f(v,x) for C_t in order to obtain b_t.
         this->subCubeTermThreaded(wPlain, termMask, input, oBuff, true);
-        // b_t is stored in vectorized form (for each f_i) in oBuff.
-        const bool b_t = (oBuff[0] & ULONG1) == ULONG1;
-        const bool c   = (it->superpolys[0][0] & ULONG1) == ULONG1;
-        systmGauss.put(curRow, numKeyBits, c ^ b_t);
         
-        // Now init the system of equations.
-        for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
-            const bool ai = (it->superpolys[1][varIdx*outputWidthUlong] & ULONG1) == ULONG1;
-            systmGauss.put(curRow, varIdx, ai);
+        // For each polynomial present
+        for(uint polyIdx=0; polyIdx < numKeyBits; polyIdx++){
+            // b_t is stored in vectorized form (for each f_i) in oBuff.
+            uint polySegm  = polyIdx / (8*SIZEOF_ULONG);
+            ULONG polyMask = ULONG1 << (polyIdx % (8*SIZEOF_ULONG));
+            
+            // Only for valid superpoly.
+            if ((it->isSuperpoly[polySegm] & polyMask) != polyMask){
+                continue;
+            }
+            
+            const bool b_t = (oBuff[polySegm] & polyMask) == polyMask;
+            const bool c   = (it->superpolys[0][polySegm] & polyMask) == polyMask;
+            systmGauss.put(curRow, numKeyBits, c ^ b_t);
+
+            // Now init the system of equations.
+            for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
+                const bool ai = (it->superpolys[1][varIdx*outputWidthUlong+polySegm] & polyMask) == polyMask;
+                systmGauss.put(curRow, varIdx, ai);
+            }
+            
+            curRow+=1;
+            if (!takeAllPolynomials){
+                break;
+            }
         }
     }
-    
-    //dumpVector(b);
-    //dumpMatrix(systm);
     
     // Try to solve the system
     GF2 determinant;
@@ -1530,7 +1550,6 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         // We have solution, convert it to the uchar array and dump in hexa and in the binary.
         const uint solByteSize = (uint)ceil(numKeyBits/8.0);
         memset(solvedKey, 0x0, solByteSize);
-
         for(uint i=0; i<numKeyBits; i++){
             if (IsOne(solution.get(i))){
                 solvedKey[i/8] |= 1u << (i%8);
@@ -1540,6 +1559,13 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         cout << "   We have the solution:" << endl;
         dumpHex(cout, solvedKey, solByteSize);
         dumpBin(cout, solvedKey, solByteSize);
+        cout << "Original key: " << endl;
+        dumpHex(cout, key, solByteSize);
+        dumpBin(cout, key, solByteSize);
+        
+        // Compute bit-hit ratio.
+        uint matches = numBitMatches(solvedKey, key, 0, numKeyBits);
+        cout << "Matches=" << matches << " that is " << (((double)matches/(double)numKeyBits)*100) << " % " << endl; 
     }
     
     delete[] input;

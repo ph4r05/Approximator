@@ -33,3 +33,14 @@ void randomBuffer(uchar * buffer, uint size){
         buffer[k] = (rand() % (0x100ul)); 
     }
 }
+
+uint numBitMatches(const uchar * a, const uchar * b, uint bitPosStart, uint bitPosEnd, uint offsetA, uint offsetB){
+    uint hits = 0;
+    for(uint i=bitPosStart; i<bitPosEnd; i++){
+        const uint keyIdxA = i+offsetA;
+        const uint keyIdxB = i+offsetB;
+        hits += ((a[keyIdxA/8] & (1u << (keyIdxA%8))) > 0) == ((b[keyIdxB/8] & (1u << (keyIdxB%8))) > 0);
+    }
+
+    return hits;
+}
