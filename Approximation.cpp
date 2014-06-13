@@ -27,6 +27,19 @@
 #include "CombinatiorialGenerator.h"
 #include "ProgressMonitor.h"
 #include "NTLUtils.h"
+#include <boost/archive/tmpdir.hpp>
+#include <boost/archive/xml_iarchive.hpp>
+#include <boost/archive/xml_oarchive.hpp>
+#include <boost/serialization/base_object.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/list.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/assume_abstract.hpp>
+
+// Signal blocking
+#include <sys/types.h>
+#include <signal.h>
+#include <stdlib.h>
 
 NTL_CLIENT
 using namespace std;
@@ -71,6 +84,13 @@ void Approximation::init() {
     poly2take = new ULONG[outputWidthUlong];
     numPolyActive = 8*cip->getOutputBlockSize();
     memset(poly2take, 0xff, SIZEOF_ULONG * outputWidthUlong);
+    
+    // Initialize signal blocking.
+    sigemptyset(&pendingSignals);
+    sigemptyset(&blockingMask);
+    sigaddset(&blockingMask, SIGHUP);
+    sigaddset(&blockingMask, SIGTERM);
+    sigaddset(&blockingMask, SIGQUIT);
 }
 
 bool Approximation::isPoly2Take(uint polyIdx) const {
@@ -1269,7 +1289,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     std::vector<ULONG> * keyCubes = new std::vector<ULONG>[wKey+1];
     
     // Interesting key bits relations are stored in this array.
-    std::vector<CubeRelations_t> keyRelations;
+    CubeRelations_vector keyRelationsVector;
     
     // Random variable bit vector = for constructing random terms.
     // In cube attack we are using plaintext variables.
@@ -1280,6 +1300,27 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     
     cout << " Going to start cube, threads=" << threadCount << endl;
     ULONG nonzeroCoutner=0;
+    
+    // Cube attack caches found relations to the file since it is not that fast 
+    // to find them and in order to enable interrupted computation.
+    std::basic_string<char> fcacheNameStr = ("cube_a" + to_string(cip->getId()) \
+                            + "_r" + to_string(cip->getNumRounds()) \
+                            + "_cp" + to_string(wPlain) \
+                            + "_ck" + to_string(wKey) \
+                            + ".xml");
+    // Read the archive.
+    {
+        cout << "Reading cache file=" << fcacheNameStr << endl;
+        std::ifstream ifs(fcacheNameStr.c_str()); 
+        if (ifs.good()){
+            boost::archive::xml_iarchive ia(ifs);
+            ia >> BOOST_SERIALIZATION_NVP(keyRelationsVector);
+        }
+    }
+    
+    std::vector<CubeRelations_t> & keyRelations = keyRelationsVector.get();
+    nonzeroCoutner = keyRelations.size();
+    cout << " Loaded " << nonzeroCoutner << " relations from the file; " << endl;
     
     // Generate multiple relations for the key variables from the black-box function.
     for(uint relationIdx = 0; nonzeroCoutner < numRelations; relationIdx++){
@@ -1381,7 +1422,10 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         //   order 0 key relations (constant c)
         //   order 1 key relations (a1, a2, ..., an)
         uint numSuperpolys=hamming_weight_array(isSuperpoly, outputWidthUlong);
-        cout << "|" << numSuperpolys << flush;
+        if (numSuperpolys>0){
+            cout << "|" << numSuperpolys << flush;
+        }
+        
         //dumpHex(cout, isSuperpoly, outputWidthUlong);
         if (numSuperpolys > 0 && (isSuperpoly[0] & ULONG1) == ULONG1){
             cout << "    ----- Have superpoly --------; num=" << numSuperpolys << endl;
@@ -1405,8 +1449,21 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             // Copy superpoly
             for(uint orderCtr=0; orderCtr <= wKey; orderCtr++){
                 cur->superpolys[orderCtr] = keyCubes[orderCtr];
-                
             }
+            
+            // Rewrite the archive with storage info.
+            // Block signals during save in order to avoid storage corruption.
+            sigset_t originalMask;
+            sigemptyset(&originalMask);
+            sigprocmask(SIG_BLOCK, &blockingMask, &originalMask);
+            cout << "<save>" << flush;
+            
+            std::ofstream ofs(fcacheNameStr.c_str()); //assert(ofs.good());
+            boost::archive::xml_oarchive oa(ofs);
+            oa << BOOST_SERIALIZATION_NVP(keyRelationsVector);
+            
+            cout << "</save>" << endl;
+            sigprocmask(SIG_BLOCK, &originalMask, NULL);
         }
     }
     

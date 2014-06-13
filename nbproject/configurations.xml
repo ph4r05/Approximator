@@ -152,7 +152,7 @@
             <linkerLibLibItem>minpolyvgf</linkerLibLibItem>
             <linkerOptionItem>`pkg-config --libs libcrypto`</linkerOptionItem>
           </linkerLibItems>
-          <commandLine>-lgmp -lntl -lboost_program_options</commandLine>
+          <commandLine>-lgmp -lntl -lboost_program_options -lboost_iostreams -lboost_serialization</commandLine>
         </linkerTool>
       </compileType>
       <item path="AESCipher.cpp" ex="false" tool="1" flavor2="0">
@@ -380,7 +380,7 @@
             <linkerLibLibItem>minpolyvgf</linkerLibLibItem>
             <linkerOptionItem>`pkg-config --libs libcrypto`</linkerOptionItem>
           </linkerLibItems>
-          <commandLine>-lgmp -lntl -lboost_program_options</commandLine>
+          <commandLine>-lgmp -lntl -lboost_program_options -lboost_iostreams -lboost_serialization</commandLine>
         </linkerTool>
       </compileType>
       <item path="AESCipher.cpp" ex="false" tool="1" flavor2="0">

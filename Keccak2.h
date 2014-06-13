@@ -26,10 +26,12 @@ public:
     Keccak2();
     virtual ~Keccak2();
         
+    virtual unsigned getId() const { return 1; }
     virtual unsigned getInputBlockSize() const        { return 16; };
     virtual unsigned getOutputBlockSize() const       { return 16; };
     virtual unsigned getKeyBlockSize()  const         { return 16; };
     virtual int setNumRounds(int rounds)              { this->rounds = rounds; return 1; };
+    virtual int getNumRounds() const                  { return this->rounds; }
         
     void set_parameters(int r, int c);
     

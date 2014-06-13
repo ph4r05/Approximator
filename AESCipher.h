@@ -23,10 +23,12 @@ public:
     AESCipher(const AESCipher& orig);
     virtual ~AESCipher();
     
+    virtual unsigned getId() const { return 0; }
     virtual unsigned getInputBlockSize() const        { return AES_BLOCK_SIZE; };
     virtual unsigned getOutputBlockSize() const       { return AES_BLOCK_SIZE; };
     virtual unsigned getKeyBlockSize()  const         { return AES_BLOCK_SIZE; };
     virtual int setNumRounds(int rounds)              { this->rounds = rounds; return 1; };
+    virtual int getNumRounds() const                  { return this->rounds; }
     
     virtual int evaluate(const unsigned char * input, unsigned char * output) const;
     virtual int evaluate(const unsigned char * input, const unsigned char * key, unsigned char * output) const;

@@ -18,10 +18,12 @@ public:
     ICipher(const ICipher& orig);
     virtual ~ICipher();
     
+    virtual unsigned getId() const = 0;
     virtual unsigned getInputBlockSize() const = 0;
     virtual unsigned getOutputBlockSize() const = 0;
     virtual unsigned getKeyBlockSize() const = 0;
     virtual int setNumRounds(int rounds) = 0;
+    virtual int getNumRounds() const = 0;
     
     virtual int evaluate(const unsigned char * input, unsigned char * output) const = 0;
     virtual int evaluate(const unsigned char * input, const unsigned char * key, unsigned char * output) const = 0;

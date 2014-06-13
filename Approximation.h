@@ -34,6 +34,11 @@
 // NTL library.
 #include <NTL/vec_vec_GF2.h>
 #include <NTL/vec_GF2.h>
+// Boost serialization
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/list.hpp>
 
 class Approximation {
 private:
@@ -95,6 +100,9 @@ private:
     ULONG * poly2take;
     // Hamming weight of the poly2take.
     uint numPolyActive;
+    
+    // Signal blocking variables.
+    sigset_t pendingSignals, blockingMask;
     
 public:
     Approximation(uint orderLimit);
@@ -264,7 +272,8 @@ public:
     void genMessages();
 };
 
-typedef struct CubeRelations_t_ {
+class CubeRelations_t {
+public:
     // Public variables (plaintext bits)
     std::vector<ULONG> termMask;
     // Bitmask of output polynomials having superpoly in this polynomial.
@@ -273,7 +282,44 @@ typedef struct CubeRelations_t_ {
     uint numSuperpolys;
     // Superpolys for each output polynomial (vectorized representation).
     std::vector<ULONG> superpolys[MAX_SUPERPOLY_ORDER];
-} CubeRelations_t;
+    
+    CubeRelations_t() {}
+    virtual ~CubeRelations_t() {}
+    
+    friend class boost::serialization::access;
+    // When the class Archive corresponds to an output archive, the
+    // & operator is defined similar to <<.  Likewise, when the class Archive
+    // is a type of input archive the & operator is defined similar to >>.
+    template<class Archive>
+    void serialize(Archive & ar, const unsigned int version)
+    {
+        ar & BOOST_SERIALIZATION_NVP(termMask);
+        ar & BOOST_SERIALIZATION_NVP(isSuperpoly);
+        ar & BOOST_SERIALIZATION_NVP(numSuperpolys);
+        ar & BOOST_SERIALIZATION_NVP(superpolys);
+    }
+};
+
+class CubeRelations_vector {
+public:
+    // Public variables (plaintext bits)
+    std::vector<CubeRelations_t> stor;
+    
+    CubeRelations_vector() {}
+    virtual ~CubeRelations_vector() {}
+    
+    std::vector<CubeRelations_t> & get() { return stor; }
+    
+    friend class boost::serialization::access;
+    // When the class Archive corresponds to an output archive, the
+    // & operator is defined similar to <<.  Likewise, when the class Archive
+    // is a type of input archive the & operator is defined similar to >>.
+    template<class Archive>
+    void serialize(Archive & ar, const unsigned int version)
+    {
+        ar & BOOST_SERIALIZATION_NVP(stor);
+    }
+};
 
 #endif	/* APPROXIMATION_H */
 
