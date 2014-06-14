@@ -1004,14 +1004,16 @@ int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar *
     
     //dumpVector(b);
     //dumpMatrix(systm);
+    if (numVariables > systm.NumRows()){
+        cout << "   System is under-determined, rows=" << (systm.NumRows()) << endl;
+        return -8;
+    }
     
     // Try to solve the system
-    GF2 determinant;
-    vec_GF2 solution;
-    
-    solve(determinant, solution, systm, b);
-    if (IsZero(determinant)){
-        cout << "   Determinant is zero, cannot solve this sytem." << endl;
+    mat_GF2 gaussed;
+    long rank = gaussPh4r05(gaussed, systm, b, numVariables);
+    if (rank < numVariables){
+        cout << "   Determinant is zero, cannot solve this system. Rank=" << rank << endl;
         return -4;
     }
     
@@ -1020,7 +1022,7 @@ int Approximation::solveGb(uint numVariables, Dpol* basis, uint numPoly, uchar *
     memset(solvedKey, 0x0, solByteSize);
     
     for(uint i=0; i<numVariables; i++){
-        if (IsOne(solution.get(i))){
+        if (IsOne(gaussed.get(i, numVariables))){
             solvedKey[i/8] |= 1u << (i%8);
         }
     }
@@ -1323,8 +1325,9 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     
     // Generate multiple relations for the key variables from the black-box function.
     for(uint relationIdx = 0; nonzeroCoutner < numRelations; relationIdx++){
-        //cout << "Relation round=" << relationIdx << endl;
-        //cout << "." << flush;
+        if (wPlain>14){
+            cout << "." << flush;
+        }
         
         // Collect relations for the key variables.
         // For this current relation, we generate randomly wPlain-bit 
