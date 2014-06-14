@@ -16,6 +16,8 @@
 #include <algorithm>    // std::move_backward
 #include <array>
 #include <iterator>
+#include <NTL/mat_GF2.h>
+#include <NTL/vec_GF2.h>
 
 typedef unsigned char uchar;
 typedef unsigned int  uint;
@@ -242,5 +244,19 @@ void dumpUchar   (std::ostream & c, const uchar * inp, unsigned int size, bool e
  * @return 
  */
 uint numBitMatches(const uchar * a, const uchar * b, uint bitPosStart, uint bitPosEnd, uint offsetA=0, uint offsetB=0);
+
+/**
+ * Solves linear system. A does not have to be a square matrix.
+ * M = [A|c].
+ * 
+ * After algorithm finishes, M contains the solution in the last column.
+ * 
+ * @param M     Output matrix, solution.
+ * @param A     Input matrix to solve. Linear variables.
+ * @param b     Constant vector for the linear equations.
+ * @param w     Maximal rank to go to.
+ * @return 
+ */
+long gaussPh4r05(NTL::mat_GF2& M, const NTL::mat_GF2& A, const NTL::vec_GF2 & b, long w);
 
 #endif	/* BASE_H */

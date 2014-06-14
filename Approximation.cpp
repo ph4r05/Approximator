@@ -1341,7 +1341,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         // key cubes, note, all the time plaintext is the same.
         // Initialize keycube vector space.
         for(unsigned int order = 0; order<=wKey; order++){
-            ULONG vecSize = CombinatiorialGenerator::binomial(8*cip->getKeyBlockSize(), order) * outputWidthUlong;
+            ULONG vecSize = CombinatiorialGenerator::binomial(numKeyBits, order) * outputWidthUlong;
             keyCubes[order].assign(vecSize, (ULONG) 0);
         }
         
@@ -1363,7 +1363,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 // Turn bits specified by current combination to 1.
                 // Mapping to the bit positions has to be used.
                 for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
-                    const uint bitIdx = cip->getInputBlockSize()*8 + keyVars[tmpOrder];
+                    const uint bitIdx = numKeyBits + keyVars[tmpOrder];
                     input[bitIdx / 8] |= 1u << (bitIdx % 8);
                 }
                 
@@ -1399,8 +1399,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 //
                 // This relation is interesting only if there is at least one
                 // linear relation in it...
-                for(uint i=0; orderCtr>0 && i<outputWidthUlong; i++){
-                    isSuperpoly[i] |= oBuff[i];
+                for(uint octr=0; orderCtr>0 && octr<outputWidthUlong; octr++){
+                    isSuperpoly[octr] |= oBuff[octr];
                 }
             }
         }
@@ -1467,7 +1467,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     memset(input, 0, byteWidth);
     memcpy(input + cip->getInputBlockSize(), key, cip->getOutputBlockSize());
     cout << "Input ready="; dumpHex(cout, input, byteWidth);
-    
+    cout << "GenKey="; dumpHex(cout, key, cip->getOutputBlockSize());
+     
     // Online phase of the attack. Key is fixed, goal is to determine it.
     // We have to determine b_t for each relation:
     //
@@ -1480,9 +1481,9 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     // Note: For now we are using only f_0 if takeAllPolynomials is enabled.
     
     // Right side of the system is stored here. It is c+b_t.
-    vec_GF2 b(INIT_SIZE, numKeyBits);
+    vec_GF2 b(INIT_SIZE, totalRelations);
     // System of the equations to solve.
-    mat_GF2 systm(INIT_SIZE, numKeyBits, numKeyBits);
+    mat_GF2 systm(INIT_SIZE, totalRelations, numKeyBits);
     mat_GF2 systmGauss(INIT_SIZE, totalRelations, numKeyBits+1);
     // Add polynomial to the systm matrix, constant term to the b vector.
     uint curRow=0;
@@ -1510,13 +1511,13 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             }
             
             const bool b_t = (oBuff[polySegm] & polyMask) == polyMask;
-            const bool c   = (it->superpolys[0][polySegm] & polyMask) == polyMask;
-            systmGauss.put(curRow, numKeyBits, c ^ b_t);
+            const bool c   = ((it->superpolys[0][polySegm]) & polyMask) == polyMask;
+            b.put(curRow, c ^ b_t);
 
             // Now init the system of equations.
             for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
-                const bool ai = (it->superpolys[1][varIdx*outputWidthUlong+polySegm] & polyMask) == polyMask;
-                systmGauss.put(curRow, varIdx, ai);
+                const bool ai = ((it->superpolys[1][varIdx*outputWidthUlong+polySegm]) & polyMask) == polyMask;
+                systm.put(curRow, varIdx, ai);
             }
             
             curRow+=1;
@@ -1527,25 +1528,21 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     }
     
     // Try to solve the system
-    GF2 determinant;
     vec_GF2 solution;
     
-    // At first try running gauss() in order to get rank of the system.
-    long rank = gauss(systmGauss);
-    cout << "Gaussian elimination performed on the system matrix, rank=" << dec << rank << endl;
+    // Solve the system that is over-determined. There are probably a lot of 
+    // linearly dependent equations in the base.
+    long rank = gaussPh4r05(systmGauss, systm, b, numKeyBits);
+    
+    cout << "Gaussian elimination performed on the system matrix, rank=" << dec << rank << "; totalRelations=" << totalRelations << endl;
     if (rank < numKeyBits){
         cout << " Cannot solve the system, rank is too low" << endl;
     } else {
         // Transfer first numKeyBits rows to the systm matrix and b vector.
+        solution.SetLength(numKeyBits);
         for(uint idx=0; idx < numKeyBits; idx++){
-            b.put(idx, systmGauss.get(idx, numKeyBits));
-            for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
-                systm.put(idx, varIdx, systmGauss.get(idx, varIdx));
-            }
+            solution.put(idx, systmGauss.get(idx, numKeyBits));
         }
-        
-        solve(determinant, solution, systm, b);
-        assert(IsZero(determinant)==false);
     
         // We have solution, convert it to the uchar array and dump in hexa and in the binary.
         const uint solByteSize = (uint)ceil(numKeyBits/8.0);
@@ -1558,10 +1555,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
 
         cout << "   We have the solution:" << endl;
         dumpHex(cout, solvedKey, solByteSize);
-        dumpBin(cout, solvedKey, solByteSize);
-        cout << "Original key: " << endl;
         dumpHex(cout, key, solByteSize);
-        dumpBin(cout, key, solByteSize);
         
         // Compute bit-hit ratio.
         uint matches = numBitMatches(solvedKey, key, 0, numKeyBits);
