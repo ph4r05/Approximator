@@ -1388,10 +1388,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                 // TODO: generalize this. Exactly same logic is used in computeCoefficients.
                 // maybe generalize and extract logic behind cubing to separate helper method...
                 // For now we only XOR with zero key cube.
-                if (orderCtr>0){
-                    for(uint octr=0; octr < outputWidthUlong; octr++){
-                        oBuff[octr] ^= keyCubes[0][octr];
-                    }
+                for(uint octr=0; orderCtr>0 && octr < outputWidthUlong; octr++){
+                    oBuff[octr] ^= keyCubes[0][octr];
                 }
                 
                 // Store the keyCube result for higher cubes computation.
