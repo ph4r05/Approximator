@@ -1416,7 +1416,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         }
         
         if (numSuperpolys > 0 && (takeAllPolynomials || ((isSuperpoly[0] & ULONG1) == ULONG1))){
-            cout << "    ----- Have superpoly --------; num=" << numSuperpolys
+            cout << endl
+                    << "    ----- Have superpoly --------; num=" << numSuperpolys
                     << "; soFar=" << nonzeroCoutner 
                     << "; total=" << totalRelations << endl;
             
@@ -1497,7 +1498,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             termMask[tidx] = it->termMask[tidx];
         }
         
-        cout << "Solving plaintext cube["<<wPlain<<"]="; dumpHex(cout, termMask, inputWidthUlong);
+        cout << "Solving plaintext cube["<<wPlain<<"]="; dumpHex(cout, termMask, this->inputWidthUlong);
         
         // Has to cube f(v,x) for C_t in order to obtain b_t.
         this->subCubeTermThreaded(wPlain, termMask, input, oBuff, true);
@@ -1505,6 +1506,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
         // For each polynomial present
         for(uint polyIdx=0; polyIdx < numKeyBits; polyIdx++){
             // b_t is stored in vectorized form (for each f_i) in oBuff.
+            std::string desc = "";
             uint polySegm  = polyIdx / (8*SIZEOF_ULONG);
             ULONG polyMask = ULONG1 << (polyIdx % (8*SIZEOF_ULONG));
             
@@ -1521,8 +1523,10 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
                 const bool ai = ((it->superpolys[1][varIdx*outputWidthUlong+polySegm]) & polyMask) == polyMask;
                 systm.put(curRow, varIdx, ai);
+                desc += ai ? "+" : "_";
             }
             
+            cout << " p[" << setw(4) << right << polyIdx << "]=" << desc << endl;
             curRow+=1;
             if (!takeAllPolynomials){
                 break;
