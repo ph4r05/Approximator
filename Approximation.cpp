@@ -1141,6 +1141,7 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
     
     // Local ULONG output buffer (on stack).
     ULONG sCube[outputWidthUlong * (subCubes+1)];
+    ULONG tmpOut[outputWidthUlong];
     
     // Buffer stores mapping to the term bit positions present in term.
     // Used for mapping from termWeight combinations to numVariables combinations.
@@ -1165,7 +1166,6 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
     // Start computing a cube from the available variables.
     // Global combination counter for parallelization.
     ULONG globalCtr = 0u; 
-    uint ctt=0;
     // Start from order 0 (constant) and continue up to termWeight.
     for(uint orderCtr=0; orderCtr <= termWeight; orderCtr++){
         // Current order to XOR is orderCtr.
@@ -1198,32 +1198,28 @@ int Approximation::subCubeTerm(uint termWeight, const ULONG* termMask, const uch
             
             // XOR result of this evaluation to the cube block.
             // Each bit corresponds to a different polynomial. For example: f0, f1, ..., f_128 for AES.
+            memset(tmpOut, 0, outByteWidth);
             for(uint i=0; i<outByteWidth; i++){
-                sCube[i/SIZEOF_ULONG] ^= ((ULONG)output[i]) << (8*(i%SIZEOF_ULONG));
+                tmpOut[i/SIZEOF_ULONG] ^= ((ULONG)output[i]) << (8*(i%SIZEOF_ULONG));
+            }
+            for(uint i=0; i<outputWidthUlong; i++){
+                sCube[i] ^= tmpOut[i];
             }
             
             // SubCubes: XOR to the cube that does not contain particular element.
-            // TODO: fix this!!! this is not 100% correct.
-            
             for(uint subCubeIdx=0; subCubeIdx<subCubes; subCubeIdx++){
                 // Subcube 0 is the subcube that does not contain 1 element from the master cube.
                 const uchar bitMask = 1u << (termBitPositions[subCubeIdx] % 8);
                 const uint  bitPos  = termBitPositions[subCubeIdx] / 8;
                 
-                if ((input[bitPos] & bitMask) == 0u){
-                    cout << "+";
-                    ctt+=1;
-                    //dumpHex(cout, input, 16);
+                if ((input[bitPos] & bitMask) == 0u){                    
                     for(uint i=0; i<outputWidthUlong; i++){
-                        sCube[(subCubeIdx+1)*outputWidthUlong + i] ^= sCube[i];
+                        const uint cbIdx = (subCubeIdx+1)*outputWidthUlong + i;
+                        sCube[cbIdx] ^= tmpOut[i];
                     }
-                } else {
-                    cout << "-";
                 }
             }
-            
         }
-        cout << "c="<<dec<<ctt<<"; ";
     }
     
     memcpy(subcube, sCube, outputWidthUlong * (subCubes+1) * SIZEOF_ULONG);
@@ -1307,7 +1303,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     uchar * input  = new uchar[byteWidth];
     uchar * solvedKey = new uchar[cip->getKeyBlockSize()];
     bool takeAllPolynomials = true; // If true relations from all polynomials are taken.
-    uint subCubes = 1;//wPlain > 5 ? 3 : 0;    
+    uint subCubes = wPlain;//wPlain > 5 ? 3 : 0;    
     // Size of the master cube + N x (N-1) sub-cubes result block.
     const uint resultSize = outputWidthUlong * (subCubes+1);
     // Local ULONG output buffer (on stack).
@@ -1469,8 +1465,6 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                             keyCubes[sOffset + orderCtr][outputWidthUlong*cg.getCounter() + octr] = oBuff[outputWidthUlong*(subCubeIdx+1) + octr];
                         }
                     }
-                    
-                    dumpHex(cout, oBuff, resultSize);
 
                     //
                     // This relation is interesting only if there is at least one
