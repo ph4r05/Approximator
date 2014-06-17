@@ -23,7 +23,7 @@
 #define MAX_ORDER 6
 
 // Maximal order used during cube attack.
-#define MAX_SUPERPOLY_ORDER 2
+#define MAX_SUPERPOLY_ORDER 4
 
 //
 // FGb
@@ -198,18 +198,19 @@ public:
      * 
      * Result is written to the subcube argument. 
      * 
+     * Function
+     * 
      * @param termWeight Term to cube, number of variables, Hamming weight of its bitmask.
      * @param termMask   Term to cube, bitmask
      * @param finput     Input for the function evaluation (contains keys).
-     * @param subcube    Output parameter.
+     * @param subcube    Output buffer.
      * @param step       Parallelization. (i*step) + offset
      * @param offset     Parallelization. (i*step) + offset
-     * @param incldueTerm If true, also the term specified in the arguments will
-     *                   be part of the result.
+     * @param doSubCubes If true, also the cubes of size N-1 are computed.
      * @return 
      */
     int subCubeTerm(uint termWeight, const ULONG * termMask, const uchar * finput, ULONG * subcube,
-        uint step, uint offset, bool includeTerm, bool precompKey) const;
+        uint step, uint offset, uint subCubes, bool precompKey) const;
     
     /**
      * Threaded variant of subCubeTerm.
@@ -221,10 +222,10 @@ public:
      * @param subcube
      * @param step
      * @param offset
-     * @param includeTerm
+     * @param doSubCubes
      * @return 
      */
-    int subCubeTermThreaded(uint termWeight, const ULONG * termMask, const uchar * finput, ULONG * subcube, bool includeTerm) const;
+    int subCubeTermThreaded(uint termWeight, const ULONG * termMask, const uchar * finput, ULONG * subcube, uint subCubes) const;
     
     int cubeAttack(uint wPlain, uint wKey, uint numRelations) const;
     

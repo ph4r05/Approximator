@@ -117,6 +117,9 @@ int main(int argc, char** argv) {
     // Internal approximator initialization.
     ap.init();
     
+    // Cube attack switch.
+    uint cube = vm["cube"].as<uint>();
+    
     // Internal implementation test.
     bool itest = vm["itest"].as<bool>();
     if (itest){
@@ -128,8 +131,11 @@ int main(int argc, char** argv) {
     }
     
     // Compute coefficients.
-    cout << "Computing coefficients" << endl;
-    ap.computeCoefficients(ap.getCoefficients());
+    // If in cube attack mode, approximation is not needed.
+    if (cube==0){
+        cout << "Computing coefficients" << endl;
+        ap.computeCoefficients(ap.getCoefficients());
+    }
         
     // Test approximation correctness
     ulong corrSamples = vm["corr"].as<ulong>();
@@ -163,7 +169,6 @@ int main(int argc, char** argv) {
     }
     
     // Cube stuff.
-    uint cube = vm["cube"].as<uint>();
     if (cube>0){
         cout << "Cube attack" << endl;
         ap.initFGb(ap.getNumVariables());
