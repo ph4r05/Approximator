@@ -258,6 +258,38 @@ public:
     int writeCubeArchive(const char * fname, CubeRelations_vector & vct) const;
     
     /**
+     * Write given relation to the archive.
+     * 
+     * @param fname
+     * @param vct
+     * @param wKey
+     * @param termMask
+     * @param keyCubes
+     * @param isSuperpoly
+     * @return 
+     */
+    int writeRelationToArchive(const char * fname, CubeRelations_vector & vct,
+        uint wKey, ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
+    
+    /**
+     * Dumps function defined by the order vectors to the stream in plaintext.
+     * 
+     * @param c
+     * @param coefficients
+     * @param maxOrder
+     */
+    ULONG dumpCoefficients(std::ostream & c, const std::vector<ULONG> * coefficients, uint maxOrder, uint numVariables, uint polyIdx) const;
+    
+    /**
+     * Generate array of bit positions from left to right. 
+     * @param termBitPositions
+     * @param bitWidth
+     * @param termMask
+     * @return 
+     */
+    uint genBitPosMask(uint * termBitPositions, uint bitWidth, const ULONG* termMask, uint termWeight) const;
+    
+    /**
      * On provided plaintext part provides cube computation on keys.
      * Plaintext remains fixed during the computation (stored in termMask),
      * key cube starts from order <b>startOrder</b> and stops in order
@@ -284,7 +316,7 @@ public:
     int keyCube(uint wPlain, uint wKey, uint startOrder, uint stopOrder,
         ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
     
-    int cubeAttack(uint wPlain, uint wKey, uint numRelations) const;
+    int cubeAttack(uint wPlain, uint wKey, uint numRelations, uint subCubesLimit) const;
     
     /**
      * Initializes FGb library.
@@ -338,6 +370,8 @@ public:
     std::vector<ULONG> isSuperpoly;
     // Hamming weight of the vector above.
     uint numSuperpolys;
+    // Size of the key cube.
+    uint wkey;
     // Superpolys for each output polynomial (vectorized representation).
     std::vector<ULONG> superpolys[MAX_SUPERPOLY_ORDER];
     
@@ -354,6 +388,7 @@ public:
         ar & BOOST_SERIALIZATION_NVP(termMask);
         ar & BOOST_SERIALIZATION_NVP(isSuperpoly);
         ar & BOOST_SERIALIZATION_NVP(numSuperpolys);
+        ar & BOOST_SERIALIZATION_NVP(wkey);
         ar & BOOST_SERIALIZATION_NVP(superpolys);
     }
 };

@@ -166,6 +166,19 @@ uint hamming_weight_array(const T * arr, uint size){
 }
 
 template<class T>
+uint hamming_weight_array(const std::vector<T> & inp, uint offset, uint size){
+    uint result=0;
+    for(uint i=0; i<size; i++){
+        T n = inp[offset+i];
+        while(n){
+            result++;
+            n &= n-1;   // Zero the lowest-order one-bit
+        }
+    }
+    return result;
+}
+
+template<class T>
 void dumpHex(std::ostream & c, const std::vector<T> & inp, unsigned int size, bool endl=1) {
     c << std::showbase // show the 0x prefix
       << std::internal // fill between the prefix and the number
