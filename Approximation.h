@@ -40,6 +40,9 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/list.hpp>
 
+class CubeRelations_t;
+class CubeRelations_vector;
+
 class Approximation {
 private:
     ICipher  * cip;
@@ -226,6 +229,60 @@ public:
      * @return 
      */
     int subCubeTermThreaded(uint termWeight, const ULONG * termMask, const uchar * finput, ULONG * subcube, uint subCubes) const;
+    
+    /**
+     * Returns cache file name for the cube attack with specified settings.
+     * @param wPlain
+     * @param wKey
+     * @return 
+     */
+    std::string getCubeCacheName(uint wPlain, uint wKey) const;
+    
+    /**
+     * Loads cube attack archive to the cube relations vector.
+     * @param fname
+     * @param 
+     * @return 
+     */
+    int readCubeArchive(const char * fname, CubeRelations_vector & vct) const;
+    
+    /**
+     * Writes complete cube relations vector to the given file. 
+     * Blocks sigterm, sigquit, sigint signals to avoid archive corruption 
+     * during save procedure. 
+     * 
+     * @param fname
+     * @param vct
+     * @return 
+     */
+    int writeCubeArchive(const char * fname, CubeRelations_vector & vct) const;
+    
+    /**
+     * On provided plaintext part provides cube computation on keys.
+     * Plaintext remains fixed during the computation (stored in termMask),
+     * key cube starts from order <b>startOrder</b> and stops in order
+     * <b>stopOrder</b> inclusively. 
+     * 
+     * keyCubes and isSuperpoly has to be already initialized. No memory reset
+     * is performed so this can be called to finish a computation, e.g., 
+     * to compute quadratic cube on already computed linear cube. 
+     * 
+     * isSuperpoly is standard ULONG array of size outputWidthUlong,
+     * keyCubes is array of vectors, each vector for each order of computation.
+     * 
+     * No sub-cubes are computed (no optimization).
+     * 
+     * @param wPlain
+     * @param wKey
+     * @param startOrder
+     * @param stopOrder
+     * @param termMask
+     * @param keyCubes
+     * @param isSuperpoly
+     * @return 
+     */
+    int keyCube(uint wPlain, uint wKey, uint startOrder, uint stopOrder,
+        ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
     
     int cubeAttack(uint wPlain, uint wKey, uint numRelations) const;
     

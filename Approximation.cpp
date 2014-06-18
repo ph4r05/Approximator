@@ -1292,8 +1292,122 @@ int Approximation::subCubeTermThreaded(uint termWeight, const ULONG* termMask,
     return 1;
 }
 
+int Approximation::keyCube(uint wPlain, uint wKey, uint startOrder, uint stopOrder,
+        ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const 
+{
+    const uint numPlainBits = cip->getInputBlockSize() * 8;
+    const uint numKeyBits = cip->getKeyBlockSize() * 8;
+    
+    uchar input[byteWidth];
+    ULONG oBuff[outputWidthUlong];
+    memset(oBuff, 0, SIZEOF_ULONG * outputWidthUlong);
+    
+    ULONG tmpCombination[orderLimit+1];
+    ULONG globalCtr = 0;
+    for(uint orderCtr=startOrder; orderCtr <= stopOrder; orderCtr++){
+        CombinatiorialGenerator cg(numKeyBits, orderCtr);            
+        for(; cg.next(); globalCtr++){
+            // Array of the key variables.
+            const ULONG * keyVars = cg.getCurState();
+            // Generate finput for the cube process.
+            memset(input, 0, byteWidth);
+            // Reflect current key combination to the input.
+            // Turn bits specified by current combination to 1.
+            // Mapping to the bit positions has to be used.
+            for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
+                const uint bitIdx = numPlainBits + keyVars[tmpOrder];
+                input[bitIdx / 8] |= 1u << (bitIdx % 8);
+            }
+
+            /*cout << "Starting order[sub="<<subCube<<"]=" << orderCtr << "; keyCombinationIdx=" << cg.getCounter() << "; all=" << cg.getTotalNum() <<  endl;
+            cout << "Key = ";
+            dumpHex(cout, cg.getCurState(), orderCtr);
+            cout << "Input = ";
+            dumpHex(cout, input, byteWidth);//*/
+
+            // Compute cubes in a parallel fashion. No subcubes allowed.
+            if (threadCount>1){
+                this->subCubeTermThreaded(wPlain, termMask, input, oBuff, 0);
+            } else {
+                cip->prepareKey(input + cip->getInputBlockSize());
+                this->subCubeTerm(wPlain, termMask, input, oBuff, 1, 0, 0, false);
+            }
+
+            // XOR with key sub cubes already stored for this plaintext.
+            // For example if we compute linear key terms, they has to be XORed
+            // with the constant term.
+            for(uint xorOrder=0; xorOrder<orderCtr; xorOrder++){
+                CombinatiorialGenerator xorOrderGen = CombinatiorialGenerator(orderCtr, xorOrder);
+                for(; xorOrderGen.next(); ){
+                    for(uint tmpCombCtr = 0; tmpCombCtr<xorOrder; tmpCombCtr++){
+                        tmpCombination[tmpCombCtr] = cg.getCurState()[xorOrderGen.getCurState()[tmpCombCtr]];
+                    }
+
+                    ULONG idx = combIndexer.getCombinationIdx(xorOrder, tmpCombination);
+                    for(uint octr=0; octr < outputWidthUlong; octr++){
+                        oBuff[octr] ^= keyCubes[xorOrder][outputWidthUlong*idx + octr];
+                    }
+                }
+            }
+
+            // Store the keyCube result for higher cubes computation.
+            for(uint octr=0; octr < outputWidthUlong; octr++){
+                keyCubes[orderCtr][outputWidthUlong*cg.getCounter() + octr] = oBuff[octr];
+            }
+
+            // This relation is interesting only if there is at least one
+            // linear relation in it...
+            for(uint octr=0; orderCtr>0 && octr<outputWidthUlong; octr++){
+                isSuperpoly[octr] |= oBuff[octr];
+            }
+        }
+    }
+    
+    return 1;
+}
+
+std::string Approximation::getCubeCacheName(uint wPlain, uint wKey) const {
+    std::string fcacheNameStr = ("cube_a" + to_string(cip->getId()) \
+                            + "_r" + to_string(cip->getNumRounds()) \
+                            + "_cp" + to_string(wPlain) \
+                            + "_ck" + to_string(wKey) \
+                            + ".xml");
+    return fcacheNameStr;
+}
+
+int Approximation::readCubeArchive(const char* fname, CubeRelations_vector& vct) const {
+    cout << "Reading cache file=" << fname << endl;
+    std::ifstream ifs(fname); 
+    if (ifs.good()){
+        boost::archive::xml_iarchive ia(ifs);
+        ia >> BOOST_SERIALIZATION_NVP(vct);
+        return 1;
+    }
+    
+    return 0;
+}
+
+int Approximation::writeCubeArchive(const char* fname, CubeRelations_vector& vct) const {
+    sigset_t originalMask;
+    sigemptyset(&originalMask);
+    sigprocmask(SIG_BLOCK, &blockingMask, &originalMask);
+    cout << "<save" << flush;
+
+    {
+        std::ofstream ofs(fname); //assert(ofs.good());
+        boost::archive::xml_oarchive oa(ofs);
+        oa << BOOST_SERIALIZATION_NVP(vct);
+    }
+
+    cout << "/>" << endl;
+    sigprocmask(SIG_SETMASK, &originalMask, NULL);
+    
+    return 1;
+}
+
 int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     const uint numKeyBits = cip->getKeyBlockSize() * 8;
+    const uint numPlainBits = cip->getInputBlockSize() * 8;
     const uint sizePlaintextUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
     //const uint sizeKeyUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
     
@@ -1312,6 +1426,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     ULONG * isSuperpoly = new ULONG[resultSize];
     // Plaintext buffer.
     ULONG * termMask = new ULONG[inputWidthUlong];
+    ULONG * subTermMask = new ULONG[inputWidthUlong];
     // SubCubes for key bits - result of approximation for one particular plaintext.
     std::vector<ULONG> * keyCubes = new std::vector<ULONG>[wKey+1+subCubes*(wKey+2)];
     // Interesting key bits relations are stored in this array, serializes to a file.
@@ -1330,20 +1445,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     
     // Cube attack caches found relations to the file since it is not that fast 
     // to find them and in order to enable interrupted computation.
-    std::basic_string<char> fcacheNameStr = ("cube_a" + to_string(cip->getId()) \
-                            + "_r" + to_string(cip->getNumRounds()) \
-                            + "_cp" + to_string(wPlain) \
-                            + "_ck" + to_string(wKey) \
-                            + ".xml");
-    // Read the archive.
-    {
-        cout << "Reading cache file=" << fcacheNameStr << endl;
-        std::ifstream ifs(fcacheNameStr.c_str()); 
-        if (ifs.good()){
-            boost::archive::xml_iarchive ia(ifs);
-            ia >> BOOST_SERIALIZATION_NVP(keyRelationsVector);
-        }
-    }
+    std::string fcacheNameStr = getCubeCacheName(wPlain, wKey);
+    readCubeArchive(fcacheNameStr.c_str(), keyRelationsVector);
     
     std::vector<CubeRelations_t> & keyRelations = keyRelationsVector.get();
     nonzeroCoutner = keyRelations.size();
@@ -1404,7 +1507,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                     // Turn bits specified by current combination to 1.
                     // Mapping to the bit positions has to be used.
                     for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
-                        const uint bitIdx = numKeyBits + keyVars[tmpOrder];
+                        const uint bitIdx = numPlainBits + keyVars[tmpOrder];
                         input[bitIdx / 8] |= 1u << (bitIdx % 8);
                     }
 
@@ -1415,8 +1518,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
                     dumpHex(cout, input, byteWidth);//*/
 
                     // Compute cubes in a parallel fashion.
-                    // TODO: write code that sub-cubes existing cube.
-                    // oldTerm (hw=31), newTerm (hw=30), key, .... Few computations, optimization!
+                    // Code computes also N x (N-1) subcubes directly.
                     if (threadCount>1){
                         this->subCubeTermThreaded(wPlain, termMask, input, oBuff, subCubes);
                     } else {
@@ -1491,8 +1593,36 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
             uint numSuperpolys=hamming_weight_array(isSuperpoly, outputWidthUlong);
             uint totalSuperpolys=hamming_weight_array(isSuperpoly, resultSize);
             if (totalSuperpolys>0){
-                cout << "|" << numSuperpolys << ":" << totalSuperpolys << flush;
+                cout << "|" << numSuperpolys << ":" << totalSuperpolys << "[";
+                for(uint i=0; i<subCubes; i++){
+                    uint cc = hamming_weight_array(isSuperpoly+outputWidthUlong*(i+1), outputWidthUlong);
+                    cout << cc << ",";
+                } cout << "]" << flush;
+                
+                // Need to compute quadratic parts of the N-1 sized subcubes.
+                for(uint sCubeIdx=0, sOffset=wKey+subCube+1; 
+                        sCubeIdx < subCubes; 
+                        sCubeIdx++, sOffset+=wKey+2+subCube)
+                {
+                    const uint isSuperpolyOffset = (sCubeIdx+1)*outputWidthUlong;
+                    uint weight = hamming_weight_array(isSuperpoly+isSuperpolyOffset, outputWidthUlong);
+                    if (weight<=1) continue;
+                    
+                    cout << "[" << weight << flush;
+                    
+                    // Cancel given bit position in this sub mask
+                    memcpy(subTermMask, termMask, outputWidthUlong);
+                    subTermMask[vars[sCubeIdx]/(8*SIZEOF_ULONG)] &= ~(1u<<(vars[sCubeIdx] % (8*SIZEOF_ULONG))); 
+                    
+                    // Compute quadratic key cubes.
+                    keyCube(wPlain-1-subCube, wKey+1+subCube, 2+subCube, 2+subCube, subTermMask, keyCubes+sOffset, isSuperpoly+isSuperpolyOffset);
+                    cout << "]" << flush;
+                } 
+                cout << endl;
             }
+            
+            // If total poly > 0, has to finish computation of the cube on sub-cubes.
+            // Now it is computation on a single sub-cube.
             
             // TODO: computation with superpolys from subcubes.
             if (numSuperpolys > 0 && (takeAllPolynomials || ((isSuperpoly[0] & ULONG1) == ULONG1))){
@@ -1526,20 +1656,8 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
 
                 // Rewrite the archive with the updated keyRelations.
                 // Block signals during save in order to avoid storage corruption.
-                sigset_t originalMask;
-                sigemptyset(&originalMask);
-                sigprocmask(SIG_BLOCK, &blockingMask, &originalMask);
-                cout << "<save" << flush;
-
-                {
-                    std::ofstream ofs(fcacheNameStr.c_str()); //assert(ofs.good());
-                    boost::archive::xml_oarchive oa(ofs);
-                    keyRelationsVector.setTotal(totalRelations);
-                    oa << BOOST_SERIALIZATION_NVP(keyRelationsVector);
-                }
-
-                cout << "/>" << endl;
-                sigprocmask(SIG_SETMASK, &originalMask, NULL);
+                keyRelationsVector.setTotal(totalRelations);
+                writeCubeArchive(fcacheNameStr.c_str(), keyRelationsVector);
                 
                 // break subCube computation, not needed.
                 break;
@@ -1663,6 +1781,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations) const {
     delete[] termMask;
     delete[] keyCubes;
     delete[] tmpCombination;
+    delete[] subTermMask;
     return 1;
 }
 
