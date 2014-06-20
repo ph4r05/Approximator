@@ -48,7 +48,8 @@ using namespace NTL;
 Approximation::Approximation(uint orderLimit) : cip(NULL), dumpCoefsToFile(false), 
         outputWidthUlong(0), inputWidthUlong(0),
         threadCount(1), keybitsToZero(0),
-        poly2take(NULL), numPolyActive(0) {
+        poly2take(NULL), numPolyActive(0),
+        verboseLvl(1) {
     
     this->orderLimit = orderLimit;
 }
@@ -156,8 +157,7 @@ void Approximation::computeCoefficients(std::vector<ULONG> * coefficients) {
                 << "; combinations: " << cg.getTotalNum()
                 << "; number of bytes to store coefficients: " 
                 << (8 * cip->getOutputBlockSize() * cg.getTotalNum() / 8)
-                << endl;
-        cout << " ";
+                << endl << " ";
         
         // Here is the point for parallelization.
         // Each thread/computing node can compute x-th combination from the generator
@@ -1404,21 +1404,45 @@ int Approximation::writeRelationToArchive(const char* fname, CubeRelations_vecto
     return writeCubeArchive(fname, vct);
 }
 
-ULONG Approximation::dumpCoefficients(std::ostream& c, const std::vector<ULONG>* coefficients, uint maxOrder, uint numVariables, uint polyIdx) const {
+ULONG Approximation::dumpCoefficients(std::ostream& c, const std::vector<ULONG>* coefficients, 
+        uint maxOrder, uint numVariables, uint polyIdx, uint fmt) const 
+{
     const ULONG valMask = ULONG1 << (polyIdx % (SIZEOF_ULONG*8));
     const uint  valPos  =            polyIdx / (SIZEOF_ULONG*8);
     ULONG numterms = 0;
+    uchar charBuffer = 0;
+    uchar charCtr = 0;
     
     for(uint orderCtr=0; orderCtr <= maxOrder; orderCtr++){
         // Current order to XOR is orderCtr.
         CombinatiorialGenerator cg(numVariables, orderCtr);            
         for(; cg.next(); ){
             // Determine if the current coefficient is enabled for given polynomial.        
-            if (((coefficients[orderCtr][outputWidthUlong*cg.getCounter() + valPos]) & valMask) == ((ULONG)0)) {
+            bool isOn = (((coefficients[orderCtr][outputWidthUlong*cg.getCounter() + valPos]) & valMask) != ((ULONG)0));
+            numterms+=isOn;
+            
+            // In binary form, just dump binary coefficient.
+            if (fmt==2){
+                c << (isOn? "1":"0");
                 continue;
             }
             
-            numterms+=1;
+            // Real binary form.
+            if (fmt==3){
+                charBuffer |= 1u << (charCtr);
+                charCtr+=1;
+                if (charCtr==8){
+                    c << charBuffer;
+                    charCtr=0u;
+                    charBuffer=0u;
+                }
+                continue;
+            }
+            
+            // Textual representations, skip.
+            if (!isOn){
+                continue;
+            }
             
             // Term is present.
             if (orderCtr==0){
@@ -1436,15 +1460,43 @@ ULONG Approximation::dumpCoefficients(std::ostream& c, const std::vector<ULONG>*
         }
     }
     
+    // CharBuffer is not flushed completely on purpose since it may contain null 
+    // bytes that are not desired to be here for statistical randomness testing.
+    if (charCtr==8){
+        c << charBuffer;
+    }
+    
     return numterms;
+}
+
+ULONG Approximation::dumpOutputFunctions(std::ostream& c, const std::vector<ULONG>* coefficients, 
+        uint maxOrder, uint numVariables, uint numPoly, bool nonNullOnly, uint fmt) const 
+{
+    ULONG totalTerms = 0;
+    for(uint s=0; s<numPoly; s++){
+        stringstream ss;
+        ULONG cNumTerms = dumpCoefficients(ss, coefficients, maxOrder, numVariables, s, fmt);
+        totalTerms += cNumTerms;
+        
+        if (nonNullOnly && cNumTerms==0) continue;
+        if (fmt==1){
+            c << " f_="<<setw(3)<< s <<" = ";
+            c << ss.str();
+            c << endl;
+        } else if (fmt==2){
+            c << ss.str() << endl;
+        } else if (fmt==3){
+            c << ss.str();
+        }
+    }
+    
+    return totalTerms;
 }
 
 int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint subCubesLimit) const {
     const uint bitWidth = 8*byteWidth;
     const uint numKeyBits = cip->getKeyBlockSize() * 8;
     const uint numPlainBits = cip->getInputBlockSize() * 8;
-    const uint sizePlaintextUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
-    //const uint sizeKeyUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
     
     // Function input/output for evaluation.
     uchar * output = new uchar[cip->getOutputBlockSize()];
@@ -1654,6 +1706,10 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
                 totalRelations+=numSuperpolys;
                 keyRelationsVector.setTotal(totalRelations);
                 
+                if (verboseLvl>1){
+                    dumpOutputFunctions(cout, keyCubes, wKey, numKeyBits, cip->getOutputBlockSize()*8, false, 3);
+                }
+                
                 // Write to the archive.
                 writeRelationToArchive(fcacheNameStr.c_str(), keyRelationsVector, 
                         wKey+subCube, termMask, keyCubes, isSuperpoly);
@@ -1691,15 +1747,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
                     }
                     
                     // Dumps subcube's polynomials in a readable form.
-                    for(uint s=0; s<128; s++){
-                        stringstream ss;
-                        ULONG cNumTerms = dumpCoefficients(ss, keyCubes + sOffset, 2, numKeyBits, s);
-                        if (cNumTerms==0) continue;
-                        
-                        cout << "i="<<setw(3) << s<<"; ";
-                        cout << ss.str();
-                        cout << endl;
-                    }
+                    dumpOutputFunctions(cout, keyCubes + sOffset, 2, numKeyBits, cip->getOutputBlockSize()*8, true);
                     
                     cout << "2We have " << sysoCtr  
                             << " sysovin, total=" << ((double)sysoCtr / (termCount*outputWidthUlong*SIZEOF_ULONG*8.0)) 
@@ -1745,89 +1793,13 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
     // 
     // From this we get system of n variables and more than n equations we want 
     // to solve with GB or Gaussian elimination.
-    //
-    // Note: For now we are using only f_0 if takeAllPolynomials is enabled.
-    
-    // Right side of the system is stored here. It is c+b_t.
-    vec_GF2 b(INIT_SIZE, totalRelations);
-    // System of the equations to solve.
-    mat_GF2 systm(INIT_SIZE, totalRelations, numKeyBits);
-    mat_GF2 systmGauss(INIT_SIZE, totalRelations, numKeyBits+1);
-    // Add polynomial to the systm matrix, constant term to the b vector.
-    uint curRow=0;
-    for (std::vector<CubeRelations_t>::iterator it = keyRelations.begin() ; it != keyRelations.end(); ++it){
-        // Copy plaintext
-        memset(termMask, 0, SIZEOF_ULONG * inputWidthUlong);
-        for(uint tidx=0; tidx<sizePlaintextUlong; tidx++){
-            termMask[tidx] = it->termMask[tidx];
-        }
-        uint wCurPlain = hamming_weight_array(termMask, inputWidthUlong);
-                
-        //cout << "Solving plaintext cube["<<wPlain<<"]="; dumpHex(cout, termMask, this->inputWidthUlong);
-        
-        // Has to cube f(v,x) for C_t in order to obtain b_t.
-        this->subCubeTermThreaded(wCurPlain, termMask, input, oBuff, 0);
-        
-        // For each polynomial present
-        for(uint polyIdx=0; polyIdx < numKeyBits; polyIdx++){
-            // b_t is stored in vectorized form (for each f_i) in oBuff.
-            std::string desc = "";
-            uint polySegm  = polyIdx / (8*SIZEOF_ULONG);
-            ULONG polyMask = ULONG1 << (polyIdx % (8*SIZEOF_ULONG));
-            
-            // Only for valid superpoly.
-            if ((it->isSuperpoly[polySegm] & polyMask) != polyMask){
-                continue;
-            }
-            
-            const bool b_t = (oBuff[polySegm] & polyMask) == polyMask;
-            const bool c   = ((it->superpolys[0][polySegm]) & polyMask) == polyMask;
-            b.put(curRow, c ^ b_t);
-
-            // Now init the system of equations.
-            for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
-                const bool ai = ((it->superpolys[1][varIdx*outputWidthUlong+polySegm]) & polyMask) == polyMask;
-                systm.put(curRow, varIdx, ai);
-                desc += ai ? "+" : "_";
-            }
-            
-            cout << " p[" << setw(4) << right << polyIdx << "]=" << desc << endl;
-            curRow+=1;
-            if (!takeAllPolynomials){
-                break;
-            }
-        }
-    }
-    
-    // Try to solve the system
-    vec_GF2 solution;
-    
     // Solve the system that is over-determined. There are probably a lot of 
     // linearly dependent equations in the base.
-    long rank = gaussPh4r05(systmGauss, systm, b, numKeyBits);
-    
-    cout << "Gaussian elimination performed on the system matrix, rank=" << dec << rank << "; totalRelations=" << totalRelations << endl;
-    if (rank < numKeyBits){
-        cout << " Cannot solve the system, rank is too low" << endl;
-    } else {
-        // Transfer first numKeyBits rows to the systm matrix and b vector.
-        solution.SetLength(numKeyBits);
-        for(uint idx=0; idx < numKeyBits; idx++){
-            solution.put(idx, systmGauss.get(idx, numKeyBits));
-        }
-    
-        // We have solution, convert it to the uchar array and dump in hexa and in the binary.
-        const uint solByteSize = (uint)ceil(numKeyBits/8.0);
-        memset(solvedKey, 0x0, solByteSize);
-        for(uint i=0; i<numKeyBits; i++){
-            if (IsOne(solution.get(i))){
-                solvedKey[i/8] |= 1u << (i%8);
-            }
-        }
-
+    long rank = cubeOnlineAttack(keyRelationsVector, input, solvedKey);
+    if (rank >= numKeyBits){
         cout << "   We have the solution:" << endl;
-        dumpHex(cout, solvedKey, solByteSize);
-        dumpHex(cout, key, solByteSize);
+        dumpHex(cout, solvedKey, cip->getKeyBlockSize());
+        dumpHex(cout, key, cip->getKeyBlockSize());
         
         // Compute bit-hit ratio.
         uint matches = numBitMatches(solvedKey, key, 0, numKeyBits);
@@ -1847,7 +1819,104 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
     return 1;
 }
 
+long Approximation::cubeOnlineAttack(CubeRelations_vector & keyRelationsVector, const uchar * input, uchar * solvedKey) const {
+    const uint numKeyBits = cip->getKeyBlockSize() * 8;
+    const uint sizePlaintextUlong = OWN_CEIL((double)cip->getInputBlockSize() / (double)SIZEOF_ULONG);
+    
+    ULONG * termMask      = new ULONG[inputWidthUlong];
+    ULONG * oBuff         = new ULONG[outputWidthUlong];
+    uint totalRelations   = keyRelationsVector.getTotal();
+    std::vector<CubeRelations_t> & keyRelations = keyRelationsVector.get();
+    
+    // Solution vector
+    vec_GF2 solution;
+    // Right side of the system is stored here. It is c^b_t.
+    vec_GF2 b(INIT_SIZE, totalRelations);
+    // System of the equations to solve.
+    mat_GF2 systm(INIT_SIZE, totalRelations, numKeyBits);
+    // Working matrix for Gaussian elimination.
+    mat_GF2 systmGauss(INIT_SIZE, totalRelations, numKeyBits+1);
+    // Add polynomial to the systm matrix, constant term to the b vector.
+    uint curRow=0;
+    for (std::vector<CubeRelations_t>::iterator it = keyRelations.begin() ; it != keyRelations.end(); ++it){
+        // Copy plaintext
+        memset(termMask, 0, SIZEOF_ULONG * inputWidthUlong);
+        for(uint tidx=0; tidx<sizePlaintextUlong; tidx++){
+            termMask[tidx] = it->termMask[tidx];
+        }
+        
+        uint wCurPlain = hamming_weight_array(termMask, inputWidthUlong);
+        if (verboseLvl>2){
+            cout << "Solving plaintext cube["<<wCurPlain<<"]="; 
+            dumpHex(cout, termMask, inputWidthUlong);
+        }
+        
+        // Has to cube f(v,x) for C_t in order to obtain b_t.
+        this->subCubeTermThreaded(wCurPlain, termMask, input, oBuff, 0);
+        
+        // For each polynomial present
+        for(uint polyIdx=0; polyIdx < numKeyBits; polyIdx++){
+            // b_t is stored in vectorized form (for each f_i) in oBuff.
+            std::string desc = "";
+            uint polySegm  = polyIdx / (8*SIZEOF_ULONG);
+            ULONG polyMask = ULONG1 << (polyIdx % (8*SIZEOF_ULONG));
+            
+            // Only for valid superpoly - there is at least one linear relation.
+            if ((it->isSuperpoly[polySegm] & polyMask) != polyMask){
+                continue;
+            }
+            
+            const bool b_t = (oBuff[polySegm] & polyMask) == polyMask;
+            const bool c   = ((it->superpolys[0][polySegm]) & polyMask) == polyMask;
+            b.put(curRow, c ^ b_t);
 
+            // Now init the system of equations.
+            for(uint varIdx=0; varIdx < numKeyBits; varIdx++){
+                const bool ai = ((it->superpolys[1][varIdx*outputWidthUlong+polySegm]) & polyMask) == polyMask;
+                systm.put(curRow, varIdx, ai);
+                desc += ai ? "+" : "_";
+            }
+            
+            if (verboseLvl>1){
+                cout << " p[" << setw(4) << right << polyIdx << "]=" << desc << endl;
+            }
+            
+            curRow+=1;
+        }
+    }
+    
+    // Solve the system that is over-determined. There are probably a lot of 
+    // linearly dependent equations in the base.
+    long rank = gaussPh4r05(systmGauss, systm, b, numKeyBits);
+    if (verboseLvl>1){
+        cout << "Gaussian elimination performed on the system matrix, rank=" << dec << rank << "; totalRelations=" << totalRelations << endl;
+    }
+    
+    if (rank < numKeyBits){
+        if (verboseLvl>1){
+            cout << " Cannot solve the system, rank is too low" << endl;
+        }
+    } else {
+        // Transfer first numKeyBits rows to the systm matrix and b vector.
+        solution.SetLength(numKeyBits);
+        for(uint idx=0; idx < numKeyBits; idx++){
+            solution.put(idx, systmGauss.get(idx, numKeyBits));
+        }
+        
+        // We have solution, convert it to the uchar array and dump in hexa and in the binary.
+        const uint solByteSize = (uint)ceil(numKeyBits/8.0);
+        memset(solvedKey, 0x0, solByteSize);
+        for(uint i=0; i<numKeyBits; i++){
+            if (IsOne(solution.get(i))){
+                solvedKey[i/8] |= 1u << (i%8);
+            }
+        }
+    }
+    
+    delete[] termMask;
+    delete[] oBuff;
+    return rank;
+}
 
 void Approximation::initFGb(uint numVariables) const {
     fgb.initFGb(numVariables);

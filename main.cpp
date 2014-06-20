@@ -48,6 +48,7 @@ int main(int argc, char** argv) {
             ("relations",      po::value<uint>()->default_value(128)->implicit_value(128),  "Number of relations finding rounds.")
             ("subcube",        po::value<uint>()->default_value(0)->implicit_value(0),  "Subcubes to compute in parallel.")
             ("wkey",           po::value<uint>()->default_value(1)->implicit_value(1),  "Weight of the key cube.")
+            ("verbose",        po::value<uint>()->default_value(1)->implicit_value(1),  "Verbosivity level.")
 //            ("out-file,o",     po::value<std::string>(),                                       "Output file to write encrypted data")
 //            ("input-files",    po::value<std::vector<std::string>>(),                          "Input files")
 //            ("create-table",   po::value<std::string>(),                                       "Create encryption/decryption tables");
@@ -108,6 +109,8 @@ int main(int argc, char** argv) {
     
     // Approximation object - main one.
     Approximation ap(orderLimit);
+    // verbosity level
+    ap.setVerboseLvl(vm["verbose"].as<uint>());
     
     // Set cipher
     ap.setCipher(c);

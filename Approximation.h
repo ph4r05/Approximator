@@ -107,6 +107,9 @@ private:
     // Signal blocking variables.
     sigset_t pendingSignals, blockingMask;
     
+    // Verbosivity level
+    uint verboseLvl;
+    
 public:
     Approximation(uint orderLimit);
     virtual ~Approximation();
@@ -278,7 +281,22 @@ public:
      * @param coefficients
      * @param maxOrder
      */
-    ULONG dumpCoefficients(std::ostream & c, const std::vector<ULONG> * coefficients, uint maxOrder, uint numVariables, uint polyIdx) const;
+    ULONG dumpCoefficients(std::ostream & c, const std::vector<ULONG> * coefficients, uint maxOrder, uint numVariables, uint polyIdx, uint fmt=1) const;
+    
+    /**
+     * Dumps function representation of a multiple function in a polynomial form.
+     * 
+     * @param c             Output stream to write data to.
+     * @param coefficients  Storage structure for polynomial representation.
+     * @param maxOrder      Maximum order of a polynomial terms to dump.
+     * @param numVariables  Number of variables in one polynomial (describes structure).
+     * @param numPoly       Number of polynomials to dump.
+     * @param nonNullOnly   if true only non-null polynomials will be dumped.
+     * @param fmt   formatting: 1=polynomial textual, 2=ASCII binary, 3=binary
+     * @return 
+     */
+    ULONG dumpOutputFunctions(std::ostream & c, const std::vector<ULONG> * coefficients, uint maxOrder, 
+        uint numVariables, uint numPoly, bool nonNullOnly=true, uint fmt=1) const;
     
     /**
      * Generate array of bit positions from left to right. 
@@ -322,6 +340,23 @@ public:
     int cubeAttack(uint wPlain, uint wKey, uint numRelations, uint subCubesLimit) const;
     
     /**
+     * Online phase of the cube attack. Key is fixed, goal is to determine it.
+     * We have to determine b_t for each relation:
+     *
+     * \Sum_{v \in C_t} f(v,x) = b_t
+     * a_1x_1 + a_2x_2 + \dots + a_nx_n + c = b_t       (this is for one relation)
+     * 
+     * From this we get system of n variables and more than n equations we want 
+     * to solve with GB or Gaussian elimination.
+     * 
+     * @param keyRelationsVector
+     * @param input Input block with prepared MAC key.
+     * @param solution Recovered key will be stored here
+     * @return 
+     */
+    long cubeOnlineAttack(CubeRelations_vector & keyRelationsVector, const uchar * input, uchar * solvedKey) const;
+    
+    /**
      * Initializes FGb library.
      * @param numVariables
      */
@@ -361,6 +396,9 @@ public:
 
     void setPoly2Take(const std::vector<std::string> & map);
     bool isPoly2Take(uint polyIdx) const;
+    
+    uint getVerboseLvl() const { return verboseLvl; }
+    void setVerboseLvl(uint verboseLvl) { this->verboseLvl = verboseLvl; }
     
     void genMessages();
 };
