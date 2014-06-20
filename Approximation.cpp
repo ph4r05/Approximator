@@ -125,7 +125,9 @@ void Approximation::computeCoefficients(std::vector<ULONG> * coefficients) {
     ULONG * ulongOut = new ULONG[outputWidthUlong];
     ULONG * ulongInp = new ULONG[inputWidthUlong];
     uchar * finput   = new uchar[byteWidth];
-    CombinatiorialGenerator ** cgenerators = new CombinatiorialGenerator * [orderLimit];
+    uchar * output   = new uchar[cip->getOutputBlockSize()];
+    
+    CombinatiorialGenerator ** cgenerators = new CombinatiorialGenerator * [orderLimit+1];
     ULONG * tmpCombination = new ULONG[orderLimit+1];
     
     // Allocating space for the coefficients.
@@ -135,37 +137,19 @@ void Approximation::computeCoefficients(std::vector<ULONG> * coefficients) {
         coefficients[order].assign(vecSize, (ULONG) 0);
     }
     
-    // Allocate input & key buffers
-    uchar * output = new uchar[cip->getOutputBlockSize()];
-    uchar * key    = finput + cip->getInputBlockSize();
-    
-    // Generate ciphertext for calculating constant term (key=0, message=0).
-    memset(finput, 0, byteWidth);
-    cip->evaluate(finput, key, output);
-    
-    // Read output of encryption and obtain constant terms.
-    for(unsigned int i = 0; i < cip->getOutputBlockSize(); i++){
-        coefficients[0][i/SIZEOF_ULONG] = READ_TERM_1(coefficients[0][i/SIZEOF_ULONG], output[i], i%SIZEOF_ULONG);
-    }
-    
     // TODO: for order 3 and higher use multiple threads to parallelize the computation!
-    // TODO: use extension with not storing coefficients to the storage, compute cubes
-    // ad hoc for higher degrees where key is in the low degree...
     // TODO: regarding the progress bar, only thread num 0 shows it. Does not mind
     // since each thread has space to search of the same size, progress should be
     // approximately the same for each thread.
     
     // Find polynomial terms coefficient for order 1..orderLimit.
-    for(uint order=1; order<=orderLimit; order++){
+    for(uint order=0; order<=orderLimit; order++){
         CombinatiorialGenerator cg(byteWidth*8, order);
         
         // Combinatorial generators for computing XOR indices.
-        for(uint i=0; (i+2) < order; i++){
-            cgenerators[i] = new CombinatiorialGenerator(order, i+2);
+        for(uint i=0; i < order; i++){
+            cgenerators[i] = new CombinatiorialGenerator(order, i);
         }
-        
-        //CombinatiorialGenerator cgQuadratic(order > 2 ? order : 2, 2);
-        //CombinatiorialGenerator cgCubic(order > 3 ? order : 3, 3);
         
         cout << "Starting with order: " 
                 << order 
@@ -193,68 +177,50 @@ void Approximation::computeCoefficients(std::vector<ULONG> * coefficients) {
             // For better memory handling and XORing in an one big register.
             readUcharToUlong(output, cip->getOutputBlockSize(), ulongOut);
             
-            // Generate coefficients of this order, perform it simultaneously
-            // on one ULONG type.
-            for(uint ulongCtr=0; ulongCtr<outputWidthUlong; ulongCtr++){
-                // Evaluate coefficients for each polynomial in the cipher
-                // for the given term specified by the state of the combinatorial generator. 
-                //
-                // Current term value: all previous terms including enabled bits XOR ciphertext.
-                // For example, term to determine: x1x6x9:
-                //   constant                XOR
-                //   x1   XOR x6   XOR x9    XOR
-                //   x1x6 XOR x1x9 XOR x6x9
-                //
-                // Obtain ciphertext bit corresponding to the current polynomial. 
-                ULONG curValue = ulongOut[ulongCtr];
-                
-                // 1. XOR constant
-                curValue ^= coefficients[0][ulongCtr];
-                
-                // 2. XOR monomials included in current combination, if applicable.
-                for(uint ti=0; order>1 && orderLimit>=1 && ti<order; ti++){
-                    curValue ^= coefficients[1][outputWidthUlong*cg.getCurState()[ti] + ulongCtr];
-                }
-                
-                // 3. XOR all quadratic, cubic, quartic, etc.. terms if applicable.
-                // In order to determine current term coefficient all lower terms
-                // that can be obtained from this one has to be taken into account.
-                // and XORed into the result.
-                for(uint xorOrder=2; xorOrder<order && order<=orderLimit; xorOrder++){
-                    
-                    // Obtain a shortcut reference to the combinatorial generator
-                    // for this xorOrder. This generator is used to generate 
-                    // combinations of variables from to original term to construct
-                    // a lower term.
-                    CombinatiorialGenerator * const xorOrderGen = cgenerators[xorOrder-2];
-                    
-                    // Iterate over all possible variable combinations to the new 
-                    // resulting term of a lower order.
-                    for(xorOrderGen->reset(); xorOrderGen->next(); ){
-                        
-                        // Construct xorOrder term representation for term
-                        // index computation.
-                        for(uint tmpCombCtr = 0; tmpCombCtr<xorOrder; tmpCombCtr++){
-                            tmpCombination[tmpCombCtr] = cg.getCurState()[xorOrderGen->getCurState()[tmpCombCtr]];
-                        }
-                        
-                        // Term index computation.
-                        ULONG idx = combIndexer.getCombinationIdx(xorOrder, tmpCombination);
-                        
-                        // XOR current result register with coefficient register.
-                        // If low order term is present in the approximation function,
-                        // it has to be taken into account.
-                        curValue ^= coefficients[xorOrder][outputWidthUlong*idx + ulongCtr];
+            // Evaluate coefficients for each polynomial in the cipher
+            // for the given term specified by the state of the combinatorial generator. 
+            //
+            // Current term value: all previous terms including enabled bits XOR ciphertext.
+            // For example, term to determine: x1x6x9:
+            //   constant                XOR
+            //   x1   XOR x6   XOR x9    XOR
+            //   x1x6 XOR x1x9 XOR x6x9
+            //
+            // XOR all constant, linear, quadratic, cubic, etc.. terms if applicable.
+            // In order to determine current term coefficient all lower terms
+            // that can be obtained from this one has to be taken into account.
+            // and XORed into the result.
+            for(uint xorOrder=0; xorOrder<order && order<=orderLimit; xorOrder++){
+                // Obtain a shortcut reference to the combinatorial generator
+                // for this xorOrder. This generator is used to generate 
+                // combinations of variables from to original term to construct
+                // a lower term.
+                CombinatiorialGenerator * const xorOrderGen = cgenerators[xorOrder];
+
+                // Iterate over all possible variable combinations to the new 
+                // resulting term of a lower order.
+                for(xorOrderGen->reset(); xorOrderGen->next(); ){
+                    // Construct xorOrder term representation for term
+                    // index computation.
+                    for(uint tmpCombCtr = 0; tmpCombCtr<xorOrder; tmpCombCtr++){
+                        tmpCombination[tmpCombCtr] = cg.getCurState()[xorOrderGen->getCurState()[tmpCombCtr]];
+                    }
+
+                    // Term index computation.
+                    ULONG idx = combIndexer.getCombinationIdx(xorOrder, tmpCombination);
+
+                    // XOR current result register with coefficient register.
+                    // If low order term is present in the approximation function,
+                    // it has to be taken into account.
+                    for(uint ulongCtr=0; ulongCtr<outputWidthUlong; ulongCtr++){
+                        ulongOut[ulongCtr] ^= coefficients[xorOrder][outputWidthUlong*idx + ulongCtr];
                     }
                 }
-                
-                // Store value of the current coefficient on his place in the coef. vector.
-                coefficients[order][outputWidthUlong*cg.getCounter() + ulongCtr] = curValue;
-                
-                // If term is too high, cannot continue since we don not have lower terms stored.
-                if (order>=orderLimit+1){
-                    break;
-                }
+            }
+
+            // Store value of the current coefficient on his place in the coef. vector.
+            for(uint ulongCtr=0; ulongCtr<outputWidthUlong; ulongCtr++){
+                coefficients[order][outputWidthUlong*cg.getCounter() + ulongCtr] = ulongOut[ulongCtr];
             }
             
             // Progress monitoring.
@@ -262,7 +228,6 @@ void Approximation::computeCoefficients(std::vector<ULONG> * coefficients) {
             pm.setCur(cProg);
         }
         pm.setCur(1.0);
-        
         cout << endl;
         
         // Combinatorial generators destruction.
