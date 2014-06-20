@@ -1547,7 +1547,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
     
     // Binary storage of the relations found.
     std::string relFile = getCubeCacheName(wPlain, wKey) + ".bin";
-    ofstream relOf(relFile.c_str());
+    ofstream relOf(relFile.c_str(), ios_base::app);
     
     std::vector<CubeRelations_t> & keyRelations = keyRelationsVector.get();
     nonzeroCoutner = keyRelations.size();
