@@ -1434,7 +1434,7 @@ ULONG Approximation::dumpCoefficients(std::ostream& c, const std::vector<ULONG>*
                 }                
                 
                 charCtr+=1;
-                if (charCtr==8){
+                if (charCtr>=8){
                     c << charBuffer;
                     charCtr=0u;
                     charBuffer=0u;
