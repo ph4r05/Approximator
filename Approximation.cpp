@@ -1429,13 +1429,18 @@ ULONG Approximation::dumpCoefficients(std::ostream& c, const std::vector<ULONG>*
             
             // Real binary form.
             if (fmt==3){
-                charBuffer |= 1u << (charCtr);
+                if (isOn){
+                    charBuffer |= 1u << (charCtr);
+                }                
+                
                 charCtr+=1;
                 if (charCtr==8){
                     c << charBuffer;
                     charCtr=0u;
                     charBuffer=0u;
+                
                 }
+                
                 continue;
             }
             
@@ -1493,7 +1498,9 @@ ULONG Approximation::dumpOutputFunctions(std::ostream& c, const std::vector<ULON
     return totalTerms;
 }
 
-int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint subCubesLimit) const {
+int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint subCubesLimit, 
+        bool saveRelations, bool dumpAllRelations) const 
+{
     const uint bitWidth = 8*byteWidth;
     const uint numKeyBits = cip->getKeyBlockSize() * 8;
     const uint numPlainBits = cip->getInputBlockSize() * 8;
@@ -1503,8 +1510,6 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
     uchar * key    = new uchar[cip->getKeyBlockSize()];
     uchar * input  = new uchar[byteWidth];
     uchar * solvedKey = new uchar[cip->getKeyBlockSize()];
-    // If true relations from all polynomials are taken.
-    bool takeAllPolynomials = true; 
     // Number of subcubes to compute. 
     uint subCubes = subCubesLimit;
     assert(wPlain >= subCubes);
@@ -1536,7 +1541,13 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
     // Cube attack caches found relations to the file since it is not that fast 
     // to find them and in order to enable interrupted computation.
     std::string fcacheNameStr = getCubeCacheName(wPlain, wKey);
-    readCubeArchive(fcacheNameStr.c_str(), keyRelationsVector);
+    if (saveRelations){
+        readCubeArchive(fcacheNameStr.c_str(), keyRelationsVector);
+    }
+    
+    // Binary storage of the relations found.
+    std::string relFile = getCubeCacheName(wPlain, wKey) + ".bin";
+    ofstream relOf(relFile.c_str());
     
     std::vector<CubeRelations_t> & keyRelations = keyRelationsVector.get();
     nonzeroCoutner = keyRelations.size();
@@ -1695,7 +1706,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
             }
             
             // Save relation from the master cube.
-            if (numSuperpolys > 0 && (takeAllPolynomials || ((isSuperpoly[0] & ULONG1) == ULONG1))){
+            if (numSuperpolys > 0 || dumpAllRelations){
                 cout << endl
                         << "    ----- Have superpoly --------; sub=" << subCube
                         << "; num=" << numSuperpolys
@@ -1707,12 +1718,15 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
                 keyRelationsVector.setTotal(totalRelations);
                 
                 if (verboseLvl>1){
-                    dumpOutputFunctions(cout, keyCubes, wKey, numKeyBits, cip->getOutputBlockSize()*8, false, 3);
+                    //dumpOutputFunctions(cout, keyCubes, wKey, numKeyBits, cip->getOutputBlockSize()*8, false, 1);
+                    dumpOutputFunctions(relOf, keyCubes, wKey, numKeyBits, cip->getOutputBlockSize()*8, false, 3);
                 }
                 
                 // Write to the archive.
-                writeRelationToArchive(fcacheNameStr.c_str(), keyRelationsVector, 
+                if (saveRelations){
+                    writeRelationToArchive(fcacheNameStr.c_str(), keyRelationsVector, 
                         wKey+subCube, termMask, keyCubes, isSuperpoly);
+                }
             }
             
             // Need to compute quadratic parts of the N-1 sized subcubes.
@@ -1759,8 +1773,10 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
                     keyRelationsVector.setTotal(totalRelations);
                 
                     // Write to the archive.
-                    writeRelationToArchive(fcacheNameStr.c_str(), keyRelationsVector, 
-                        wKey+1+subCube, subTermMask, keyCubes+sOffset, isSuperpoly+isSuperpolyOffset);
+                    if (saveRelations){
+                        writeRelationToArchive(fcacheNameStr.c_str(), keyRelationsVector, 
+                            wKey+1+subCube, subTermMask, keyCubes+sOffset, isSuperpoly+isSuperpolyOffset);
+                    }
                     
                     cout << "]" << flush;
                 } 

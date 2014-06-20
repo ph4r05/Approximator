@@ -49,6 +49,8 @@ int main(int argc, char** argv) {
             ("subcube",        po::value<uint>()->default_value(0)->implicit_value(0),  "Subcubes to compute in parallel.")
             ("wkey",           po::value<uint>()->default_value(1)->implicit_value(1),  "Weight of the key cube.")
             ("verbose",        po::value<uint>()->default_value(1)->implicit_value(1),  "Verbosivity level.")
+            ("saverel",        po::value<bool>()->default_value(true)->implicit_value(true),  "Save relations to a file.")
+            ("dumprel",        po::value<bool>()->default_value(false)->implicit_value(false),  "Dump all relations found (for statistical testing).")
 //            ("out-file,o",     po::value<std::string>(),                                       "Output file to write encrypted data")
 //            ("input-files",    po::value<std::vector<std::string>>(),                          "Input files")
 //            ("create-table",   po::value<std::string>(),                                       "Create encryption/decryption tables");
@@ -177,7 +179,14 @@ int main(int argc, char** argv) {
     if (cube>0){
         cout << "Cube attack" << endl;
         ap.initFGb(ap.getNumVariables());
-        ap.cubeAttack(cube, vm["wkey"].as<uint>(), vm["relations"].as<uint>(), vm["subcube"].as<uint>());
+        ap.cubeAttack(
+                cube, 
+                vm["wkey"].as<uint>(), 
+                vm["relations"].as<uint>(), 
+                vm["subcube"].as<uint>(), 
+                vm["saverel"].as<bool>(),
+                vm["dumprel"].as<bool>()
+        );
         ap.deinitFGb();
     }
     

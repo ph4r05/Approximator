@@ -337,7 +337,21 @@ public:
     int keyCube(uint wPlain, uint wKey, uint startOrder, uint stopOrder,
         ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
     
-    int cubeAttack(uint wPlain, uint wKey, uint numRelations, uint subCubesLimit) const;
+    /**
+     * Cube attack.
+     * 
+     * @param wPlain
+     * @param wKey
+     * @param numRelations
+     * @param subCubesLimit
+     * @param saveRelations
+     * @param dumpAllRelations  If true all relations (also null ones) will be dumped.
+                                If true, cube attack will not work, just for randomness test of the 
+                                coefficient distribution.
+     * @return 
+     */
+    int cubeAttack(uint wPlain, uint wKey, uint numRelations, uint subCubesLimit, 
+        bool saveRelations=true, bool dumpAllRelations=false) const;
     
     /**
      * Online phase of the cube attack. Key is fixed, goal is to determine it.
