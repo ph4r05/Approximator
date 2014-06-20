@@ -1498,12 +1498,126 @@ ULONG Approximation::dumpOutputFunctions(std::ostream& c, const std::vector<ULON
     return totalTerms;
 }
 
+int Approximation::keyCubePart(uint wPlain, uint wKey, uint orderCtr,
+        uint subCubesLimit, uint curSubCube, uint step, uint offset, 
+        ULONG* termMask, std::vector<ULONG>* keyCubes, ULONG* isSuperpoly) const 
+{
+    const uint numKeyBits   = cip->getKeyBlockSize() * 8;
+    const uint numPlainBits = cip->getInputBlockSize() * 8;
+    const uint resultSize = outputWidthUlong * (subCubesLimit+1); // Size of the master cube + N x (N-1) sub-cubes result block.
+    
+    uchar * input   = new uchar[byteWidth];
+    ULONG * oBuff   = new ULONG[resultSize];
+    ULONG * tmpCombination = new ULONG[orderCtr+1];
+    CombinatiorialGenerator ** cgenerators = new CombinatiorialGenerator * [orderCtr];
+    ULONG globalCtr = 0;
+    
+    // Init combination generators needed for XORing with sub terms.
+    for(uint i=0; i < orderCtr; i++){
+        cgenerators[i] = new CombinatiorialGenerator(orderCtr, i);
+    }
+    
+    // Current order to XOR is orderCtr.
+    CombinatiorialGenerator cg(numKeyBits, orderCtr);            
+    for(; cg.next(); globalCtr++){
+        // Parallelization step.
+        if (step>1 && ((globalCtr % step) != offset)) continue;
+        // Array of the key variables.
+        const ULONG * keyVars = cg.getCurState();
+        // Generate finput for the cube process.
+        memset(input, 0, byteWidth);
+        // Reflect current key combination to the input.
+        // Turn bits specified by current combination to 1.
+        // Mapping to the bit positions has to be used.
+        for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
+            const uint bitIdx = numPlainBits + keyVars[tmpOrder];
+            input[bitIdx / 8] |= 1u << (bitIdx % 8);
+        }
+
+        /*cout << "Starting order[sub="<<curSubCube<<"]=" << orderCtr << "; keyCombinationIdx=" << cg.getCounter() << "; all=" << cg.getTotalNum() <<  endl;
+        cout << "Key = ";
+        dumpHex(cout, cg.getCurState(), orderCtr);
+        cout << "Input = ";
+        dumpHex(cout, input, byteWidth);//*/
+
+        // Compute cubes in a parallel fashion.
+        // Code computes also N x (N-1) subcubes directly.
+        cip->prepareKey(input + cip->getInputBlockSize());
+        this->subCubeTerm(wPlain, termMask, input, oBuff, 1, 0, subCubesLimit, false);
+        // Threaded version:
+        //this->subCubeTermThreaded(wPlain, termMask, input, oBuff, subCubesLimit);
+        
+        // XOR with key sub cubes already stored for this plaintext.
+        // For example if we compute linear key terms, they has to be XORed
+        // with the constant term.
+        for(uint xorOrder=0; xorOrder<orderCtr; xorOrder++){
+            CombinatiorialGenerator & xorOrderGen = *cgenerators[xorOrder];
+            for(xorOrderGen.reset(); xorOrderGen.next(); ){
+                for(uint tmpCombCtr = 0; tmpCombCtr<xorOrder; tmpCombCtr++){
+                    tmpCombination[tmpCombCtr] = cg.getCurState()[xorOrderGen.getCurState()[tmpCombCtr]];
+                }
+
+                ULONG idx = combIndexer.getCombinationIdx(xorOrder, tmpCombination);
+                for(uint octr=0; octr < outputWidthUlong; octr++){
+                    oBuff[octr] ^= keyCubes[xorOrder][outputWidthUlong*idx + octr];
+                }
+
+                // Subsubes
+                for(uint subCubeIdx=0, sOffset=wKey+curSubCube+1; 
+                        subCubeIdx < subCubesLimit; 
+                        subCubeIdx++, sOffset+=wKey+2+curSubCube)
+                {
+                    for(uint octr=0; octr < outputWidthUlong; octr++){
+                        oBuff[outputWidthUlong*(subCubeIdx+1) + octr] ^= keyCubes[sOffset + xorOrder][outputWidthUlong*idx + octr];
+                    }
+                }
+            }
+        }
+
+        // Store the keyCube result for higher cubes computation.
+        for(uint octr=0; octr < outputWidthUlong; octr++){
+            keyCubes[orderCtr][outputWidthUlong*cg.getCounter() + octr] = oBuff[octr];
+        }
+
+        // Subsubes
+        for(uint subCubeIdx=0, sOffset=wKey+curSubCube+1; 
+                subCubeIdx < subCubesLimit; 
+                subCubeIdx++, sOffset+=wKey+2+curSubCube)
+        {
+            for(uint octr=0; octr < outputWidthUlong; octr++){
+                keyCubes[sOffset + orderCtr][outputWidthUlong*cg.getCounter() + octr] = oBuff[outputWidthUlong*(subCubeIdx+1) + octr];
+            }
+        }
+
+        //
+        // This relation is interesting only if there is at least one
+        // linear relation in it...
+        for(uint octr=0; orderCtr>0 && octr<resultSize; octr++){
+            isSuperpoly[octr] |= oBuff[octr];
+        }   
+    }
+    
+    // Destroy combination generators.
+    for(uint i=0; i<orderCtr; i++){
+        if (cgenerators[i]!=NULL){
+            delete cgenerators[i];
+            cgenerators[i] = NULL;
+        }
+    }
+    
+    delete[] input;
+    delete[] oBuff;
+    delete[] tmpCombination;
+    delete[] cgenerators;
+    
+    return 1;
+}
+
 int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint subCubesLimit, 
         bool saveRelations, bool dumpAllRelations) const 
 {
     const uint bitWidth = 8*byteWidth;
     const uint numKeyBits = cip->getKeyBlockSize() * 8;
-    const uint numPlainBits = cip->getInputBlockSize() * 8;
     
     // Function input/output for evaluation.
     uchar * output = new uchar[cip->getOutputBlockSize()];
@@ -1597,87 +1711,40 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
 
             // Collects superpolys according to the paper, reset for each plaintext.
             memset(isSuperpoly, 0, SIZEOF_ULONG * resultSize);
-
+            
             // For each key, one plaintext cube has to be computed.
-            ULONG globalCtr = 0;
             for(uint orderCtr=0; orderCtr <= (wKey+subCube); orderCtr++){ // TODO: subcube computation is not correct!
                 // Current order to XOR is orderCtr.
-                CombinatiorialGenerator cg(numKeyBits, orderCtr);            
-                for(; cg.next(); globalCtr++){
-                    // Array of the key variables.
-                    const ULONG * keyVars = cg.getCurState();
-                    // Generate finput for the cube process.
-                    memset(input, 0, byteWidth);
-                    // Reflect current key combination to the input.
-                    // Turn bits specified by current combination to 1.
-                    // Mapping to the bit positions has to be used.
-                    for(uint tmpOrder=0; tmpOrder<orderCtr; tmpOrder++){
-                        const uint bitIdx = numPlainBits + keyVars[tmpOrder];
-                        input[bitIdx / 8] |= 1u << (bitIdx % 8);
+                // If order is 0, do not parallelize.
+                uint threadNum = orderCtr==0 ? 1 : this->threadCount;
+                if (threadNum==1){
+                    this->keyCubePart(
+                        wPlain, wKey, orderCtr,
+                        subCubes, subCube, threadNum, 0, 
+                        termMask, keyCubes, isSuperpoly);
+                } else {
+                    std::vector<std::thread> threads;
+                    for(uint tidx = 0; tidx < threadNum; tidx++){
+                        // Create & start a new thread with its work partition.
+                        // Definition of the thread function is using lambda expressions.
+                        // See http://en.cppreference.com/w/cpp/language/lambda 
+                        // for lambda expressions.
+                        threads.push_back(std::thread(
+                            [=](){
+                                 this->keyCubePart(
+                                        wPlain, wKey, orderCtr,
+                                        subCubes, subCube, threadNum, tidx, 
+                                        termMask, keyCubes, isSuperpoly);
+                            }));
                     }
 
-                    /*cout << "Starting order[sub="<<subCube<<"]=" << orderCtr << "; keyCombinationIdx=" << cg.getCounter() << "; all=" << cg.getTotalNum() <<  endl;
-                    cout << "Key = ";
-                    dumpHex(cout, cg.getCurState(), orderCtr);
-                    cout << "Input = ";
-                    dumpHex(cout, input, byteWidth);//*/
-
-                    // Compute cubes in a parallel fashion.
-                    // Code computes also N x (N-1) subcubes directly.
-                    if (threadCount>1){
-                        this->subCubeTermThreaded(wPlain, termMask, input, oBuff, subCubes);
-                    } else {
-                        cip->prepareKey(input + cip->getInputBlockSize());
-                        this->subCubeTerm(wPlain, termMask, input, oBuff, 1, 0, subCubes, false);
-                    }
-
-                    // XOR with key sub cubes already stored for this plaintext.
-                    // For example if we compute linear key terms, they has to be XORed
-                    // with the constant term.
-                    for(uint xorOrder=0; xorOrder<orderCtr; xorOrder++){
-                        CombinatiorialGenerator xorOrderGen = CombinatiorialGenerator(orderCtr, xorOrder);
-                        for(; xorOrderGen.next(); ){
-                            for(uint tmpCombCtr = 0; tmpCombCtr<xorOrder; tmpCombCtr++){
-                                tmpCombination[tmpCombCtr] = cg.getCurState()[xorOrderGen.getCurState()[tmpCombCtr]];
-                            }
-
-                            ULONG idx = combIndexer.getCombinationIdx(xorOrder, tmpCombination);
-                            for(uint octr=0; octr < outputWidthUlong; octr++){
-                                oBuff[octr] ^= keyCubes[xorOrder][outputWidthUlong*idx + octr];
-                            }
-                            
-                            // Subsubes
-                            for(uint subCubeIdx=0, sOffset=wKey+subCube+1; 
-                                    subCubeIdx < subCubes; 
-                                    subCubeIdx++, sOffset+=wKey+2+subCube)
-                            {
-                                for(uint octr=0; octr < outputWidthUlong; octr++){
-                                    oBuff[outputWidthUlong*(subCubeIdx+1) + octr] ^= keyCubes[sOffset + xorOrder][outputWidthUlong*idx + octr];
-                                }
-                            }
+                    // Join on threads, wait for the result.
+                    for(auto& cthread : threads){
+                        if (cthread.joinable()){
+                            cthread.join();
+                        } else {
+                            cerr << " .!thread not joinable" << endl;
                         }
-                    }
-                            
-                    // Store the keyCube result for higher cubes computation.
-                    for(uint octr=0; octr < outputWidthUlong; octr++){
-                        keyCubes[orderCtr][outputWidthUlong*cg.getCounter() + octr] = oBuff[octr];
-                    }
-                    
-                    // Subsubes
-                    for(uint subCubeIdx=0, sOffset=wKey+subCube+1; 
-                            subCubeIdx < subCubes; 
-                            subCubeIdx++, sOffset+=wKey+2+subCube)
-                    {
-                        for(uint octr=0; octr < outputWidthUlong; octr++){
-                            keyCubes[sOffset + orderCtr][outputWidthUlong*cg.getCounter() + octr] = oBuff[outputWidthUlong*(subCubeIdx+1) + octr];
-                        }
-                    }
-
-                    //
-                    // This relation is interesting only if there is at least one
-                    // linear relation in it...
-                    for(uint octr=0; orderCtr>0 && octr<resultSize; octr++){
-                        isSuperpoly[octr] |= oBuff[octr];
                     }
                 }
                 
@@ -1718,7 +1785,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
                 keyRelationsVector.setTotal(totalRelations);
                 
                 if (verboseLvl>1){
-                    //dumpOutputFunctions(cout, keyCubes, wKey, numKeyBits, cip->getOutputBlockSize()*8, false, 1);
+                    //dumpOutputFunctions(cout, keyCubes, wKey, numKeyBits, cip->getOutputBlockSize()*8, true, 2);
                     dumpOutputFunctions(relOf, keyCubes, wKey, numKeyBits, cip->getOutputBlockSize()*8, false, 3);
                 }
                 

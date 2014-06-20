@@ -338,6 +338,30 @@ public:
         ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
     
     /**
+     * Computes key cube on the given data.
+     * Suitable for parallelization since has step & offset for particular combination
+     * to perform.
+     * 
+     * Computes only one order since problem is very difficult to parallelize 
+     * across multiple orders.
+     * 
+     * @param wPlain            Hamming weight of the plaintext cube.
+     * @param wKey              Hamming weight of the key cube to compute.
+     * @param orderCtr          Order of the terms.
+     * @param subCubesLimit     Number of sub cubes to compute in parallel.
+     * @param curSubCube        Computational sub-cube in use.
+     * @param step              Number of threads used during this computation.
+     * @param offset            Offset to use in parallelized computation.
+     * @param termMask          Plaintext term mask.
+     * @param keyCubes          KeyCubes to use & to store result to.
+     * @param isSuperpoly       Is super poly signalizing register.
+     * @return 
+     */
+    int keyCubePart(uint wPlain, uint wKey, uint orderCtr,
+        uint subCubesLimit, uint curSubCube, uint step, uint offset,
+        ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
+    
+    /**
      * Cube attack.
      * 
      * @param wPlain
