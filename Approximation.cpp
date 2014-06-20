@@ -130,9 +130,6 @@ void Approximation::computeCoefficients(std::vector<ULONG> * coefficients) {
     
     // Allocating space for the coefficients.
     for(unsigned int order = 0; order<=orderLimit; order++){
-        // Compute the size of coefficient array.
-        // Binomial(8*byteWidth, order) * outputWidthUlong.
-        //
         ULONG vecSize = CombinatiorialGenerator::binomial(8*byteWidth, order) * outputWidthUlong;
         cout << "  Allocating coefficient storage for order " << order << "; Bytes=" << vecSize * sizeof(ULONG) << endl;
         coefficients[order].assign(vecSize, (ULONG) 0);
@@ -1728,8 +1725,6 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
                         sysoCtr += hamming_weight_array(keyCubes[sOffset+2], syso*outputWidthUlong, outputWidthUlong);
                     }
                     
-                    cout << "2We have " << sysoCtr  << " sysovin, total=" << ((double)sysoCtr / (termCount*outputWidthUlong*SIZEOF_ULONG*8.0)) << endl;
-                    
                     // Dumps subcube's polynomials in a readable form.
                     for(uint s=0; s<128; s++){
                         stringstream ss;
@@ -1740,6 +1735,10 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
                         cout << ss.str();
                         cout << endl;
                     }
+                    
+                    cout << "2We have " << sysoCtr  
+                            << " sysovin, total=" << ((double)sysoCtr / (termCount*outputWidthUlong*SIZEOF_ULONG*8.0)) 
+                            << endl;
                     
                     // Save relations.
                     nonzeroCoutner+=1;

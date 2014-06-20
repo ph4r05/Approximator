@@ -290,14 +290,17 @@ public:
     uint genBitPosMask(uint * termBitPositions, uint bitWidth, const ULONG* termMask, uint termWeight) const;
     
     /**
-     * On provided plaintext part provides cube computation on keys.
+     * On provided plaintext part performs cube computation on key variables.
      * Plaintext remains fixed during the computation (stored in termMask),
      * key cube starts from order <b>startOrder</b> and stops in order
      * <b>stopOrder</b> inclusively. 
      * 
      * keyCubes and isSuperpoly has to be already initialized. No memory reset
      * is performed so this can be called to finish a computation, e.g., 
-     * to compute quadratic cube on already computed linear cube. 
+     * to compute quadratic cube on already computed linear cube.
+     * Results are stored to these variables and these variables are used 
+     * for computation (e.g., for computing quadratic key cube, results for
+     * linear key cube are used). 
      * 
      * isSuperpoly is standard ULONG array of size outputWidthUlong,
      * keyCubes is array of vectors, each vector for each order of computation.
