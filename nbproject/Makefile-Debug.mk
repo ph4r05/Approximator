@@ -62,8 +62,8 @@ OBJECTFILES= \
 CFLAGS=
 
 # CC Compiler Flags
-CCFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl
-CXXFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl
+CCFLAGS=-m64 -lboost_program_options -lcrypto -dynamic -ldl -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl -fomit-frame-pointer -O3 -g0 -march=native -mtune=native -m64
+CXXFLAGS=-m64 -lboost_program_options -lcrypto -dynamic -ldl -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl -fomit-frame-pointer -O3 -g0 -march=native -mtune=native -m64
 
 # Fortran Compiler Flags
 FFLAGS=
@@ -80,7 +80,7 @@ LDLIBSOPTIONS=-Lfaugere/x64 -lm -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyv
 
 ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation: ${OBJECTFILES}
 	${MKDIR} -p ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}
-	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation ${OBJECTFILES} ${LDLIBSOPTIONS} -lgmp -lntl -lboost_program_options -lboost_iostreams -lboost_serialization
+	${LINK.cc} -o ${CND_DISTDIR}/${CND_CONF}/${CND_PLATFORM}/highorderapproximation ${OBJECTFILES} ${LDLIBSOPTIONS} -lgmp -lntl -lboost_program_options -lboost_iostreams -lboost_serialization -ldl -lz
 
 ${OBJECTDIR}/AESCipher.o: AESCipher.cpp 
 	${MKDIR} -p ${OBJECTDIR}

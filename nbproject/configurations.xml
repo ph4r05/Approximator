@@ -140,7 +140,7 @@
             <pElem>faugere/int</pElem>
             <pElem>faugere/protocol</pElem>
           </incDir>
-          <commandLine>-lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl</commandLine>
+          <commandLine>-lboost_program_options -lcrypto -dynamic -ldl -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl -fomit-frame-pointer -O3 -g0 -march=native -mtune=native -m64</commandLine>
           <warningLevel>2</warningLevel>
         </ccTool>
         <linkerTool>
@@ -157,7 +157,7 @@
             <linkerLibLibItem>minpolyvgf</linkerLibLibItem>
             <linkerOptionItem>`pkg-config --libs libcrypto`</linkerOptionItem>
           </linkerLibItems>
-          <commandLine>-lgmp -lntl -lboost_program_options -lboost_iostreams -lboost_serialization</commandLine>
+          <commandLine>-lgmp -lntl -lboost_program_options -lboost_iostreams -lboost_serialization -ldl -lz</commandLine>
         </linkerTool>
       </compileType>
       <item path="AESCipher.cpp" ex="false" tool="1" flavor2="0">
@@ -345,7 +345,8 @@
             <pElem>faugere/int</pElem>
             <pElem>faugere/protocol</pElem>
           </incDir>
-          <commandLine>-lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl -fomit-frame-pointer -O3 -g0 -march=native -mtune=native -m64</commandLine>
+          <commandLine>-lboost_program_options -lcrypto -dynamic -ldl -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl -fomit-frame-pointer -O3 -g0 -march=native -mtune=native -m64</commandLine>
+          <warningLevel>2</warningLevel>
         </ccTool>
         <fortranCompilerTool>
           <developmentMode>5</developmentMode>
@@ -367,7 +368,7 @@
             <linkerLibLibItem>minpolyvgf</linkerLibLibItem>
             <linkerOptionItem>`pkg-config --libs libcrypto`</linkerOptionItem>
           </linkerLibItems>
-          <commandLine>-lgmp -lntl -lboost_program_options -lboost_iostreams -lboost_serialization</commandLine>
+          <commandLine>-lgmp -lntl -lboost_program_options -lboost_iostreams -lboost_serialization -ldl -lz</commandLine>
         </linkerTool>
       </compileType>
       <item path="AESCipher.cpp" ex="false" tool="1" flavor2="0">
