@@ -39,8 +39,8 @@ int KeccakOptAsm7r::evaluate(const unsigned char* input, unsigned char* output) 
 int KeccakOptAsm7r::evaluate(const unsigned char* input, const unsigned char* key, unsigned char* output) const {
     unsigned char in[32] = {0};
     unsigned char ou[128] = {0};
-    memcpy(in, input, 16);
-    memcpy(in, key, 16);
+    memcpy(in,    input, 16);
+    memcpy(in+16, key, 16);
     
     spongeState state;
     InitSponge(&state, 1024, 576);

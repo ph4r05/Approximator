@@ -16,6 +16,7 @@
 class KeccakOptAsm7r : public ICipher {
 private:
     unsigned rounds;
+    unsigned char key[16];
     
 public:
     KeccakOptAsm7r();
@@ -32,10 +33,10 @@ public:
     virtual int evaluate(const unsigned char *input, const unsigned char *key, unsigned char *output ) const;
     
     inline virtual int prepareKey(const unsigned char * key) 
-    { return 1; }
+    { memcpy(this->key, key, 16); return 1; }
     
     inline virtual int evaluateWithPreparedKey(const unsigned char * input, unsigned char * output) const
-    { return evaluate(input, NULL, output); return 1;}
+    { return evaluate(input, this->key, output); return 1;}
 };
 
 #endif	/* KECCAKOPTASM7R_H */
