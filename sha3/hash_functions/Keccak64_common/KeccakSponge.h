@@ -20,16 +20,16 @@ http://creativecommons.org/publicdomain/zero/1.0/
 #define KeccakMaximumRateInBytes (KeccakMaximumRate/8)
 
 #if defined(__GNUC__)
-#define KECCAK_ALIGN __attribute__ ((aligned(32)))
+#define ALIGN __attribute__ ((aligned(32)))
 #elif defined(_MSC_VER)
-#define KECCAK_ALIGN __declspec(align(32))
+#define ALIGN __declspec(align(32))
 #else
-#define KECCAK_ALIGN
+#define ALIGN
 #endif
 
-KECCAK_ALIGN typedef struct spongeStateStruct {
-    KECCAK_ALIGN unsigned char state[KeccakPermutationSizeInBytes];
-    KECCAK_ALIGN unsigned char dataQueue[KeccakMaximumRateInBytes];
+ALIGN typedef struct spongeStateStruct {
+    ALIGN unsigned char state[KeccakPermutationSizeInBytes];
+    ALIGN unsigned char dataQueue[KeccakMaximumRateInBytes];
     unsigned int rate;
     unsigned int capacity;
     unsigned int bitsInQueue;
@@ -60,7 +60,7 @@ int InitSponge(spongeState *state, unsigned int rate, unsigned int capacity);
   *         i.e., Squeeze() must not have been called before.
   * @return Zero if successful, 1 otherwise.
   */
-int Absorb(spongeState *state, const unsigned char *data, unsigned long long databitlen);
+int Absorb(spongeState *state, const unsigned char *data, unsigned long long databitlen, unsigned int rounds);
 /**
   * Function to squeeze output data from the sponge function.
   * If the sponge function was in the absorbing phase, this function 
@@ -71,6 +71,6 @@ int Absorb(spongeState *state, const unsigned char *data, unsigned long long dat
   *                     It must be a multiple of 8.
   * @return Zero if successful, 1 otherwise.
   */
-int Squeeze(spongeState *state, unsigned char *output, unsigned long long outputLength);
+int Squeeze(spongeState *state, unsigned char *output, unsigned long long outputLength, unsigned int rounds);
 
 #endif

@@ -1,0 +1,128 @@
+## -*- Makefile -*-
+##
+## User: ph4r05
+## Time: Jun 25, 2014 2:00:38 PM
+## Makefile created by Oracle Solaris Studio.
+##
+## This file is generated automatically.
+##
+
+
+#### Compiler and tool definitions shared by all build targets #####
+CC = gcc
+CCC = g++
+CXX = g++
+AS=as
+BASICOPTS = -g -m64 -O0
+CFLAGS = $(BASICOPTS)
+CCFLAGS = $(BASICOPTS) -std=c++11 
+CXXFLAGS = $(BASICOPTS) -std=c++11 
+CCADMIN = 
+
+
+# Define the target directories.
+TARGETDIR_keccakTestAsm=GNU-amd64-Linux
+TARGETDIR_keccakTestOpt=GNU-amd64-Linux
+
+
+all: $(TARGETDIR_keccakTestAsm)/keccakTestAsm $(TARGETDIR_keccakTestOpt)/keccakTestOpt
+
+## Target: keccakTestAsm
+OBJS_keccakTestAsm =  \
+	$(TARGETDIR_keccakTestAsm)/base.o \
+	$(TARGETDIR_keccakTestAsm)/KeccakTest.o \
+	$(TARGETDIR_keccakTestAsm)/KeccakF-1600-x86-64-asm.o \
+	$(TARGETDIR_keccakTestAsm)/KeccakSponge.o \
+	$(TARGETDIR_keccakTestAsm)/KeccakF-1600-x86-64-gas.o 
+SYSLIBS_keccakTestAsm = -lm -lntl
+USERLIBS_keccakTestAsm = $(SYSLIBS_keccakTestAsm) 
+DEPLIBS_keccakTestAsm =  
+LDLIBS_keccakTestAsm = $(USERLIBS_keccakTestAsm)
+
+
+# Link or archive
+$(TARGETDIR_keccakTestAsm)/keccakTestAsm: $(TARGETDIR_keccakTestAsm) $(OBJS_keccakTestAsm) $(DEPLIBS_keccakTestAsm)
+	$(LINK.cc) $(CCFLAGS_keccakTestAsm) $(CPPFLAGS_keccakTestAsm) -o $@ $(OBJS_keccakTestAsm) $(LDLIBS_keccakTestAsm)
+
+
+# Compile source files into .o files
+$(TARGETDIR_keccakTestAsm)/base.o: $(TARGETDIR_keccakTestAsm) base.cpp
+	$(COMPILE.cc) $(CCFLAGS_keccakTestAsm) $(CPPFLAGS_keccakTestAsm) -o $@ base.cpp
+
+$(TARGETDIR_keccakTestAsm)/KeccakTest.o: $(TARGETDIR_keccakTestAsm) KeccakTest.cpp
+	$(COMPILE.cc) $(CCFLAGS_keccakTestAsm) $(CPPFLAGS_keccakTestAsm) -o $@ KeccakTest.cpp
+
+$(TARGETDIR_keccakTestAsm)/KeccakF-1600-x86-64-asm.o: $(TARGETDIR_keccakTestAsm) sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.c
+	$(COMPILE.c) $(CFLAGS_keccakTestAsm) $(CPPFLAGS_keccakTestAsm) -o $@ sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.c
+
+$(TARGETDIR_keccakTestAsm)/KeccakSponge.o: $(TARGETDIR_keccakTestAsm) sha3/hash_functions/Keccak64_common/KeccakSponge.c
+	$(COMPILE.c) $(CFLAGS_keccakTestAsm) $(CPPFLAGS_keccakTestAsm) -o $@ sha3/hash_functions/Keccak64_common/KeccakSponge.c
+
+$(TARGETDIR_keccakTestAsm)/KeccakF-1600-x86-64-gas.o: $(TARGETDIR_keccakTestAsm) sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.s
+	$(AS) $(ASFLAGS_keccakTestAsm) $(CPPFLAGS_keccakTestAsm) -o $@ sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.s
+
+
+## Target: keccakTestOpt
+OBJS_keccakTestOpt =  \
+	$(TARGETDIR_keccakTestOpt)/base.o \
+	$(TARGETDIR_keccakTestOpt)/KeccakTest.o \
+	$(TARGETDIR_keccakTestOpt)/KeccakSponge.o \
+	$(TARGETDIR_keccakTestOpt)/KeccakF-1600-opt64.o 
+SYSLIBS_keccakTestOpt = -lm -lntl
+USERLIBS_keccakTestOpt = $(SYSLIBS_keccakTestOpt) 
+DEPLIBS_keccakTestOpt =  
+LDLIBS_keccakTestOpt = $(USERLIBS_keccakTestOpt)
+
+
+# Link or archive
+$(TARGETDIR_keccakTestOpt)/keccakTestOpt: $(TARGETDIR_keccakTestOpt) $(OBJS_keccakTestOpt) $(DEPLIBS_keccakTestOpt)
+	$(LINK.cc) $(CCFLAGS_keccakTestOpt) $(CPPFLAGS_keccakTestOpt) -o $@ $(OBJS_keccakTestOpt) $(LDLIBS_keccakTestOpt)
+
+
+# Compile source files into .o files
+$(TARGETDIR_keccakTestOpt)/base.o: $(TARGETDIR_keccakTestOpt) base.cpp
+	$(COMPILE.cc) $(CCFLAGS_keccakTestOpt) $(CPPFLAGS_keccakTestOpt) -o $@ base.cpp
+
+$(TARGETDIR_keccakTestOpt)/KeccakTest.o: $(TARGETDIR_keccakTestOpt) KeccakTest.cpp
+	$(COMPILE.cc) $(CCFLAGS_keccakTestOpt) $(CPPFLAGS_keccakTestOpt) -o $@ KeccakTest.cpp
+
+$(TARGETDIR_keccakTestOpt)/KeccakSponge.o: $(TARGETDIR_keccakTestOpt) sha3/hash_functions/Keccak64_common/KeccakSponge.c
+	$(COMPILE.c) $(CFLAGS_keccakTestOpt) $(CPPFLAGS_keccakTestOpt) -o $@ sha3/hash_functions/Keccak64_common/KeccakSponge.c
+
+$(TARGETDIR_keccakTestOpt)/KeccakF-1600-opt64.o: $(TARGETDIR_keccakTestOpt) sha3/hash_functions/Keccak64_opt/KeccakF-1600-opt64.c
+	$(COMPILE.c) $(CFLAGS_keccakTestOpt) $(CPPFLAGS_keccakTestOpt) -o $@ sha3/hash_functions/Keccak64_opt/KeccakF-1600-opt64.c
+
+
+#### Clean target deletes all generated files ####
+clean:
+	rm -f \
+		$(TARGETDIR_keccakTestAsm)/keccakTestAsm \
+		$(TARGETDIR_keccakTestAsm)/base.o \
+		$(TARGETDIR_keccakTestAsm)/KeccakTest.o \
+		$(TARGETDIR_keccakTestAsm)/KeccakF-1600-x86-64-asm.o \
+		$(TARGETDIR_keccakTestAsm)/KeccakSponge.o \
+		$(TARGETDIR_keccakTestAsm)/KeccakF-1600-x86-64-gas.o \
+		$(TARGETDIR_keccakTestAsm)/KeccakF-1600-opt64.o \
+		$(TARGETDIR_keccakTestOpt)/keccakTestOpt \
+		$(TARGETDIR_keccakTestOpt)/base.o \
+		$(TARGETDIR_keccakTestOpt)/KeccakTest.o \
+		$(TARGETDIR_keccakTestOpt)/KeccakF-1600-x86-64-asm.o \
+		$(TARGETDIR_keccakTestOpt)/KeccakSponge.o \
+		$(TARGETDIR_keccakTestOpt)/KeccakF-1600-opt64.o \
+		$(TARGETDIR_keccakTestOpt)/KeccakF-1600-x86-64-gas.o
+	$(CCADMIN)
+	rm -f -r $(TARGETDIR_keccakTestOpt)
+	rm -f -r $(TARGETDIR_keccakTestAsm)
+
+
+# Create the target directory (if needed)
+$(TARGETDIR_keccakTestOpt):
+	mkdir -p $(TARGETDIR_keccakTestOpt)
+$(TARGETDIR_keccakTestAsm):
+	mkdir -p $(TARGETDIR_keccakTestAsm)
+
+
+# Enable dependency checking
+.KEEP_STATE:
+.KEEP_STATE_FILE:.make.state.GNU-amd64-Linux
+

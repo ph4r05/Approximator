@@ -12,6 +12,7 @@
 #include "AESCipher.h"
 #include "CombinatiorialGenerator.h"
 #include "Keccak2.h"
+#include "KeccakOptAsm7r.h"
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -93,6 +94,10 @@ int main(int argc, char** argv) {
         case 1:
             cout << "Algorithm=Keccak" << endl;
             c = new Keccak2();
+            break;
+        case 3:
+            cout << "Algorithm=Keccak Assembler optimized 7 round" << endl;
+            c = new KeccakOptAsm7r();
             break;
         default: 
             cerr << "Unknown algorithm id="<<algId<<endl;

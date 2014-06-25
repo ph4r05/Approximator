@@ -43,26 +43,27 @@ OBJECTFILES= \
 	${OBJECTDIR}/FGbHelper.o \
 	${OBJECTDIR}/ICipher.o \
 	${OBJECTDIR}/Keccak2.o \
+	${OBJECTDIR}/KeccakFull.o \
+	${OBJECTDIR}/KeccakOptAsm7r.o \
 	${OBJECTDIR}/Logger.o \
+	${OBJECTDIR}/MultiCombinatorialGenerator.o \
 	${OBJECTDIR}/NTLUtils.o \
 	${OBJECTDIR}/ProgressMonitor.o \
 	${OBJECTDIR}/base.o \
 	${OBJECTDIR}/ciphers/aes.o \
 	${OBJECTDIR}/main.o \
 	${OBJECTDIR}/sha3/Sha3Interface.o \
-	${OBJECTDIR}/sha3/hash_functions/BMW/BMW_sha3.o \
-	${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakDuplex.o \
-	${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakF-1600-opt32.o \
-	${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakSponge.o \
-	${OBJECTDIR}/sha3/hash_functions/Keccak/Keccak_sha3.o
+	${OBJECTDIR}/sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.o \
+	${OBJECTDIR}/sha3/hash_functions/Keccak64_common/KeccakSponge.o \
+	${OBJECTDIR}/sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.o
 
 
 # C Compiler Flags
 CFLAGS=
 
 # CC Compiler Flags
-CCFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl
-CXXFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl
+CCFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl -fomit-frame-pointer -O3 -g0 -march=native -mtune=native -m64
+CXXFLAGS=-m64 -lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl -fomit-frame-pointer -O3 -g0 -march=native -mtune=native -m64
 
 # Fortran Compiler Flags
 FFLAGS=
@@ -121,10 +122,25 @@ ${OBJECTDIR}/Keccak2.o: Keccak2.cpp
 	${RM} "$@.d"
 	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Keccak2.o Keccak2.cpp
 
+${OBJECTDIR}/KeccakFull.o: KeccakFull.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/KeccakFull.o KeccakFull.cpp
+
+${OBJECTDIR}/KeccakOptAsm7r.o: KeccakOptAsm7r.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/KeccakOptAsm7r.o KeccakOptAsm7r.cpp
+
 ${OBJECTDIR}/Logger.o: Logger.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Logger.o Logger.cpp
+
+${OBJECTDIR}/MultiCombinatorialGenerator.o: MultiCombinatorialGenerator.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/MultiCombinatorialGenerator.o MultiCombinatorialGenerator.cpp
 
 ${OBJECTDIR}/NTLUtils.o: NTLUtils.cpp 
 	${MKDIR} -p ${OBJECTDIR}
@@ -156,30 +172,19 @@ ${OBJECTDIR}/sha3/Sha3Interface.o: sha3/Sha3Interface.cpp
 	${RM} "$@.d"
 	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/Sha3Interface.o sha3/Sha3Interface.cpp
 
-${OBJECTDIR}/sha3/hash_functions/BMW/BMW_sha3.o: sha3/hash_functions/BMW/BMW_sha3.cpp 
-	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/BMW
+${OBJECTDIR}/sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.o: sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.c 
+	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak64_common
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/BMW/BMW_sha3.o sha3/hash_functions/BMW/BMW_sha3.cpp
+	$(COMPILE.c) -O2 `pkg-config --cflags libcrypto`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.o sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.c
 
-${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakDuplex.o: sha3/hash_functions/Keccak/KeccakDuplex.c 
-	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak
+${OBJECTDIR}/sha3/hash_functions/Keccak64_common/KeccakSponge.o: sha3/hash_functions/Keccak64_common/KeccakSponge.c 
+	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak64_common
 	${RM} "$@.d"
-	$(COMPILE.c) -O2 `pkg-config --cflags libcrypto`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakDuplex.o sha3/hash_functions/Keccak/KeccakDuplex.c
+	$(COMPILE.c) -O2 `pkg-config --cflags libcrypto`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak64_common/KeccakSponge.o sha3/hash_functions/Keccak64_common/KeccakSponge.c
 
-${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakF-1600-opt32.o: sha3/hash_functions/Keccak/KeccakF-1600-opt32.c 
-	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak
-	${RM} "$@.d"
-	$(COMPILE.c) -O2 `pkg-config --cflags libcrypto`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakF-1600-opt32.o sha3/hash_functions/Keccak/KeccakF-1600-opt32.c
-
-${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakSponge.o: sha3/hash_functions/Keccak/KeccakSponge.c 
-	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak
-	${RM} "$@.d"
-	$(COMPILE.c) -O2 `pkg-config --cflags libcrypto`   -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak/KeccakSponge.o sha3/hash_functions/Keccak/KeccakSponge.c
-
-${OBJECTDIR}/sha3/hash_functions/Keccak/Keccak_sha3.o: sha3/hash_functions/Keccak/Keccak_sha3.cpp 
-	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak
-	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/sha3/hash_functions/Keccak/Keccak_sha3.o sha3/hash_functions/Keccak/Keccak_sha3.cpp
+${OBJECTDIR}/sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.o: sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.s 
+	${MKDIR} -p ${OBJECTDIR}/sha3/hash_functions/Keccak64_r7
+	$(AS) $(ASFLAGS) -o ${OBJECTDIR}/sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.o sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.s
 
 # Subprojects
 .build-subprojects:

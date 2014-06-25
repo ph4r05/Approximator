@@ -33,6 +33,9 @@
       <itemPath>AESCipherOpenSSL.h</itemPath>
       <itemPath>CombinatorialIndexer.h</itemPath>
       <itemPath>FGbHelper.h</itemPath>
+      <itemPath>KeccakFull.h</itemPath>
+      <itemPath>KeccakOptAsm7r.h</itemPath>
+      <itemPath>MultiCombinatorialGenerator.h</itemPath>
       <itemPath>ProgressMonitor.h</itemPath>
       <itemPath>faugere/aes.h</itemPath>
       <itemPath>faugere/fgb.h</itemPath>
@@ -45,27 +48,24 @@
       <logicalFolder name="hash_functions"
                      displayName="hash_functions"
                      projectFiles="true">
-        <logicalFolder name="BMW" displayName="BMW" projectFiles="true">
-          <itemPath>sha3/hash_functions/BMW/BMW_sha3.cpp</itemPath>
-          <itemPath>sha3/hash_functions/BMW/BMW_sha3.h</itemPath>
+        <logicalFolder name="Keccak64_r7"
+                       displayName="Keccak64_asm"
+                       projectFiles="true">
+          <itemPath>sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.s</itemPath>
         </logicalFolder>
-        <logicalFolder name="Keccak" displayName="Keccak" projectFiles="true">
-          <itemPath>sha3/hash_functions/Keccak/KeccakDuplex.c</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakDuplex.h</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-32-rvk.macros</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-32-s1.macros</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-32-s2.macros</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-32.macros</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-int-set.h</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-interface.h</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-opt32-settings.h</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-opt32.c</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakF-1600-unrolling.macros</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakSponge.c</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/KeccakSponge.h</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/Keccak_sha3.cpp</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/Keccak_sha3.h</itemPath>
-          <itemPath>sha3/hash_functions/Keccak/brg_endian.h</itemPath>
+        <logicalFolder name="Keccak64_common"
+                       displayName="Keccak64_common"
+                       projectFiles="true">
+          <itemPath>sha3/hash_functions/Keccak64_common/KeccakF-1600-64.macros</itemPath>
+          <itemPath>sha3/hash_functions/Keccak64_common/KeccakF-1600-int-set.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak64_common/KeccakF-1600-interface.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak64_common/KeccakF-1600-simd128.macros</itemPath>
+          <itemPath>sha3/hash_functions/Keccak64_common/KeccakF-1600-simd64.macros</itemPath>
+          <itemPath>sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.c</itemPath>
+          <itemPath>sha3/hash_functions/Keccak64_common/KeccakSponge.c</itemPath>
+          <itemPath>sha3/hash_functions/Keccak64_common/KeccakSponge.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak64_common/brg_endian.h</itemPath>
+          <itemPath>sha3/hash_functions/Keccak64_common/crypto_hash.h</itemPath>
         </logicalFolder>
         <itemPath>sha3/hash_functions/hashFunctions.h</itemPath>
       </logicalFolder>
@@ -79,6 +79,10 @@
       <itemPath>AESCipherOpenSSL.cpp</itemPath>
       <itemPath>CombinatorialIndexer.cpp</itemPath>
       <itemPath>FGbHelper.cpp</itemPath>
+      <itemPath>KeccakFull.cpp</itemPath>
+      <itemPath>KeccakOptAsm7r.cpp</itemPath>
+      <itemPath>KeccakTest.cpp</itemPath>
+      <itemPath>MultiCombinatorialGenerator.cpp</itemPath>
       <itemPath>ProgressMonitor.cpp</itemPath>
       <itemPath>main.cpp</itemPath>
     </logicalFolder>
@@ -110,6 +114,7 @@
     <itemPath>Version.h</itemPath>
     <itemPath>base.cpp</itemPath>
     <itemPath>base.h</itemPath>
+    <itemPath>makeTestAsm</itemPath>
   </logicalFolder>
   <sourceRootList>
     <Elem>faugere</Elem>
@@ -187,9 +192,21 @@
       </item>
       <item path="Keccak2.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="KeccakFull.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="KeccakFull.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="KeccakOptAsm7r.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="KeccakOptAsm7r.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="Logger.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="Logger.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="MultiCombinatorialGenerator.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="MultiCombinatorialGenerator.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="NTLUtils.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -238,97 +255,67 @@
       </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
       </item>
+      <item path="makeTestAsm" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="sha3/Sha3Constants.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="sha3/Sha3Interface.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="sha3/Sha3Interface.h" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="sha3/hash_functions/BMW/BMW_sha3.cpp"
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-64.macros"
             ex="false"
-            tool="1"
+            tool="3"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/BMW/BMW_sha3.h" ex="false" tool="3" flavor2="0">
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-int-set.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/KeccakDuplex.c"
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-interface.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-simd128.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-simd64.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.c"
             ex="false"
             tool="0"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/KeccakDuplex.h"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-rvk.macros"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-s1.macros"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-s2.macros"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32.macros"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-int-set.h"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-interface.h"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-opt32-settings.h"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-opt32.c"
+      <item path="sha3/hash_functions/Keccak64_common/KeccakSponge.c"
             ex="false"
             tool="0"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-unrolling.macros"
+      <item path="sha3/hash_functions/Keccak64_common/KeccakSponge.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/KeccakSponge.c"
-            ex="false"
-            tool="0"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakSponge.h"
+      <item path="sha3/hash_functions/Keccak64_common/brg_endian.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/Keccak_sha3.cpp"
-            ex="false"
-            tool="1"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/Keccak_sha3.h"
+      <item path="sha3/hash_functions/Keccak64_common/crypto_hash.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/brg_endian.h"
+      <item path="sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.s"
             ex="false"
-            tool="3"
+            tool="4"
             flavor2="0">
       </item>
       <item path="sha3/hash_functions/hashFunctions.h"
@@ -358,7 +345,7 @@
             <pElem>faugere/int</pElem>
             <pElem>faugere/protocol</pElem>
           </incDir>
-          <commandLine>-lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl</commandLine>
+          <commandLine>-lboost_program_options -lcrypto -L faugere/x64 -lfgb -lfgbexp -lgb -lgbexp -lminpoly -lminpolyvgf -lgmp -lm -fopenmp -lntl -fomit-frame-pointer -O3 -g0 -march=native -mtune=native -m64</commandLine>
         </ccTool>
         <fortranCompilerTool>
           <developmentMode>5</developmentMode>
@@ -415,9 +402,21 @@
       </item>
       <item path="Keccak2.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="KeccakFull.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="KeccakFull.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="KeccakOptAsm7r.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="KeccakOptAsm7r.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="Logger.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="Logger.h" ex="false" tool="3" flavor2="0">
+      </item>
+      <item path="MultiCombinatorialGenerator.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="MultiCombinatorialGenerator.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="NTLUtils.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -466,97 +465,67 @@
       </item>
       <item path="main.cpp" ex="false" tool="1" flavor2="0">
       </item>
+      <item path="makeTestAsm" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="sha3/Sha3Constants.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="sha3/Sha3Interface.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="sha3/Sha3Interface.h" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="sha3/hash_functions/BMW/BMW_sha3.cpp"
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-64.macros"
             ex="false"
-            tool="1"
+            tool="3"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/BMW/BMW_sha3.h" ex="false" tool="3" flavor2="0">
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-int-set.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/KeccakDuplex.c"
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-interface.h"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-simd128.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-simd64.macros"
+            ex="false"
+            tool="3"
+            flavor2="0">
+      </item>
+      <item path="sha3/hash_functions/Keccak64_common/KeccakF-1600-x86-64-asm.c"
             ex="false"
             tool="0"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/KeccakDuplex.h"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-rvk.macros"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-s1.macros"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32-s2.macros"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-32.macros"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-int-set.h"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-interface.h"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-opt32-settings.h"
-            ex="false"
-            tool="3"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-opt32.c"
+      <item path="sha3/hash_functions/Keccak64_common/KeccakSponge.c"
             ex="false"
             tool="0"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/KeccakF-1600-unrolling.macros"
+      <item path="sha3/hash_functions/Keccak64_common/KeccakSponge.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/KeccakSponge.c"
-            ex="false"
-            tool="0"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/KeccakSponge.h"
+      <item path="sha3/hash_functions/Keccak64_common/brg_endian.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/Keccak_sha3.cpp"
-            ex="false"
-            tool="1"
-            flavor2="0">
-      </item>
-      <item path="sha3/hash_functions/Keccak/Keccak_sha3.h"
+      <item path="sha3/hash_functions/Keccak64_common/crypto_hash.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="sha3/hash_functions/Keccak/brg_endian.h"
+      <item path="sha3/hash_functions/Keccak64_r7/KeccakF-1600-x86-64-gas.s"
             ex="false"
-            tool="3"
+            tool="4"
             flavor2="0">
       </item>
       <item path="sha3/hash_functions/hashFunctions.h"

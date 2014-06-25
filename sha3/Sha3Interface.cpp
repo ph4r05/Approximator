@@ -65,7 +65,7 @@ Sha3Interface* Sha3Interface::getSha3Function(int algorithm, int numRounds) {
 //    case SHA3_AURORA: { return new Aurora(numRounds); break; }
 //    case SHA3_BLAKE: { return new Blake(numRounds); break; }
 //    case SHA3_BLENDER: { return new Blender(numRounds); break; }
-    case SHA3_BMW: { return new BMW(numRounds); break; }
+//    case SHA3_BMW: { return new BMW(numRounds); break; }
 //    case SHA3_BOOLE: { return new Boole(numRounds); break; }
 //    case SHA3_CHEETAH: { return new Cheetah(numRounds); break; }
 //    case SHA3_CHI: { return new Chi(numRounds); break; }
@@ -83,7 +83,7 @@ Sha3Interface* Sha3Interface::getSha3Function(int algorithm, int numRounds) {
 //    case SHA3_GROSTL: { return new Grostl(numRounds); break; }
 //    case SHA3_HAMSI: { return new Hamsi(numRounds); break; }
 //    case SHA3_JH: { return new JH(numRounds); break; }
-    case SHA3_KECCAK: { return new Keccak(); break; }
+//    case SHA3_KECCAK: { return new Keccak(); break; }
 //    case SHA3_KHICHIDI: { return new Khichidi(); break; }
 //    case SHA3_LANE: { return new Lane(numRounds); break; }
 //    case SHA3_LESAMNTA: { return new Lesamnta(numRounds); break; }
