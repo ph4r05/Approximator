@@ -30,8 +30,8 @@ int KeccakOptAsm7r::evaluate(const unsigned char* input, unsigned char* output) 
     unsigned char ou[128] = {0};
     spongeState state;
     InitSponge(&state, 1024, 576);
-    Absorb(&state, input, 32*8, 7);
-    Squeeze(&state, ou, 1024, 7);
+    Absorb(&state, input, 32*8, rounds);
+    Squeeze(&state, ou, 1024, rounds);
     memcpy(output, ou, 16);
     return 1;
 }
@@ -44,8 +44,8 @@ int KeccakOptAsm7r::evaluate(const unsigned char* input, const unsigned char* ke
     
     spongeState state;
     InitSponge(&state, 1024, 576);
-    Absorb(&state, in, 32*8, 7);
-    Squeeze(&state, ou, 1024, 7);
+    Absorb(&state, in, 32*8, rounds);
+    Squeeze(&state, ou, 1024, rounds);
     memcpy(output, ou, 16);
     return 1;
 }

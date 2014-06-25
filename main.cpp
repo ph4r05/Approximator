@@ -98,6 +98,7 @@ int main(int argc, char** argv) {
         case 3:
             cout << "Algorithm=Keccak Assembler optimized 7 round" << endl;
             c = new KeccakOptAsm7r();
+            c->setNumRounds(7);
             break;
         default: 
             cerr << "Unknown algorithm id="<<algId<<endl;
@@ -106,7 +107,9 @@ int main(int argc, char** argv) {
     
     // Prepare approximation object.
     if (vm.count("rounds")){
-        c->setNumRounds(vm["rounds"].as<int>());
+        int res = c->setNumRounds(vm["rounds"].as<int>());
+        cout << "Setting number of rounds=" << (c->getNumRounds()) << endl;
+        assert(res == 1);
     }
     
     // Seed random number generator
