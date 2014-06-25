@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     
     fprintf(stderr, "Seed=%u, rounds=%u\n", seed, rounds);
     srandom(seed);
-    for(i=0; i<2; i++){
+    for(i=0; i<128; i++){
         unsigned char ou[128] = {0};
         unsigned char input[200] = {0};
         unsigned char output[16] = {0};
