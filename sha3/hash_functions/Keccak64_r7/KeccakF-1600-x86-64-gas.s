@@ -362,6 +362,89 @@
 
 		.endm
 
+.macro mKeccakCopyStateUnrolled iState, oState
+                pushq           %rax
+                addq            $1*8, %rsp
+
+                movq            _ba(\iState), %rax
+                movq            %rax, _ba(\oState)
+
+                movq            _be(\iState), %rax
+                movq            %rax, _be(\oState)
+
+                movq            _bi(\iState), %rax
+                movq            %rax, _bi(\oState)
+
+                movq            _bo(\iState), %rax
+                movq            %rax, _bo(\oState)
+
+                movq            _bu(\iState), %rax
+                movq            %rax, _bu(\oState)
+
+                movq            _ga(\iState), %rax
+                movq            %rax, _ga(\oState)
+
+                movq            _ge(\iState), %rax
+                movq            %rax, _ge(\oState)
+
+                movq            _gi(\iState), %rax
+                movq            %rax, _gi(\oState)
+
+                movq            _go(\iState), %rax
+                movq            %rax, _go(\oState)
+
+                movq            _gu(\iState), %rax
+                movq            %rax, _gu(\oState)
+
+                movq            _ka(\iState), %rax
+                movq            %rax, _ka(\oState)
+
+                movq            _ke(\iState), %rax
+                movq            %rax, _ke(\oState)
+
+                movq            _ki(\iState), %rax
+                movq            %rax, _ki(\oState)
+
+                movq            _ko(\iState), %rax
+                movq            %rax, _ko(\oState)
+
+                movq            _ku(\iState), %rax
+                movq            %rax, _ku(\oState)
+
+                movq            _ma(\iState), %rax
+                movq            %rax, _ma(\oState)
+
+                movq            _me(\iState), %rax
+                movq            %rax, _me(\oState)
+
+                movq            _mi(\iState), %rax
+                movq            %rax, _mi(\oState)
+
+                movq            _mo(\iState), %rax
+                movq            %rax, _mo(\oState)
+
+                movq            _mu(\iState), %rax
+                movq            %rax, _mu(\oState)
+
+                movq            _sa(\iState), %rax
+                movq            %rax, _sa(\oState)
+
+                movq            _se(\iState), %rax
+                movq            %rax, _se(\oState)
+
+                movq            _si(\iState), %rax
+                movq            %rax, _si(\oState)
+
+                movq            _so(\iState), %rax
+                movq            %rax, _so(\oState)
+
+                movq            _su(\iState), %rax
+                movq            %rax, _su(\oState)
+
+                subq            $1*8, %rsp
+                popq            %rax
+                .endm
+
 .macro	mKeccakCopyState	iState, oState
                 
                 pushq           %rax
@@ -417,7 +500,7 @@ loopEnd\@:
 		mKeccakRound	rpState, rpStack, 0x0000000000000001, 1
                 
                 # Copy rpStack to rpState, last round is odd.
-                mKeccakCopyState rpStack, rpState
+                mKeccakCopyStateUnrolled rpStack, rpState
 
 		addq		$8*25, %rsp
 
@@ -445,7 +528,7 @@ loopEnd\@:
 		mKeccakRound	rpState, rpStack, 0x800000000000808a, 1
 		
                 # Copy rpStack to rpState, last round is odd.
-                mKeccakCopyState rpStack, rpState
+                mKeccakCopyStateUnrolled rpStack, rpState
 
 		addq		$8*25, %rsp
 
@@ -466,7 +549,7 @@ loopEnd\@:
                 mKeccakRound	rpState, rpStack, 0x8000000080008081, 1
 
                 # Copy rpStack to rpState, last round is odd.
-                mKeccakCopyState rpStack, rpState
+                mKeccakCopyStateUnrolled rpStack, rpState
 
 		addq		$8*25, %rsp
 
