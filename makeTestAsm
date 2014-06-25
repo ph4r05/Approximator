@@ -34,10 +34,10 @@ OBJS_keccakTestAsm =  \
 	$(TARGETDIR_keccakTestAsm)/KeccakF-1600-x86-64-asm.o \
 	$(TARGETDIR_keccakTestAsm)/KeccakSponge.o \
 	$(TARGETDIR_keccakTestAsm)/KeccakF-1600-x86-64-gas.o 
-SYSLIBS_keccakTestAsm = -lm -lntl
+SYSLIBS_keccakTestAsm =  -lntl
 USERLIBS_keccakTestAsm = $(SYSLIBS_keccakTestAsm) 
 DEPLIBS_keccakTestAsm =  
-LDLIBS_keccakTestAsm = $(USERLIBS_keccakTestAsm)
+LDLIBS_keccakTestAsm = -static $(USERLIBS_keccakTestAsm)
 
 
 # Link or archive
@@ -68,10 +68,10 @@ OBJS_keccakTestOpt =  \
 	$(TARGETDIR_keccakTestOpt)/KeccakTest.o \
 	$(TARGETDIR_keccakTestOpt)/KeccakSponge.o \
 	$(TARGETDIR_keccakTestOpt)/KeccakF-1600-opt64.o 
-SYSLIBS_keccakTestOpt = -lm -lntl
+SYSLIBS_keccakTestOpt =  -lntl
 USERLIBS_keccakTestOpt = $(SYSLIBS_keccakTestOpt) 
 DEPLIBS_keccakTestOpt =  
-LDLIBS_keccakTestOpt = $(USERLIBS_keccakTestOpt)
+LDLIBS_keccakTestOpt = -static $(USERLIBS_keccakTestOpt)
 
 
 # Link or archive
