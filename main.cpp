@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
             ("rounds,r",       po::value<int>()->default_value(-1)->implicit_value(-1), "Number of rounds of the cipher.")
             ("threads,t",      po::value<uint>()->default_value(1)->implicit_value(1),  "Number of threads to use for computation.")
             ("cube",           po::value<uint>()->default_value(0)->implicit_value(0),  "Starts cube attack.")
-            ("alg",            po::value<uint>()->default_value(0)->implicit_value(0),  "Algorithm to analyze. 0=AES, 1=Keccak.")
+            ("alg",            po::value<uint>()->default_value(0)->implicit_value(0),  "Algorithm to analyze. 0=AES, 1=Keccak, 3=Keccak assm optimized")
             ("relations",      po::value<uint>()->default_value(128)->implicit_value(128),  "Number of relations finding rounds.")
             ("subcube",        po::value<uint>()->default_value(0)->implicit_value(0),  "Subcubes to compute in parallel.")
             ("wkey",           po::value<uint>()->default_value(1)->implicit_value(1),  "Weight of the key cube.")
