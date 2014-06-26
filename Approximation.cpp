@@ -1641,6 +1641,7 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
     const uint numKeyBits = cip->getKeyBlockSize() * 8;
     
     // Function input/output for evaluation.
+    bool doProgressMonitoring = verboseLvl>0 && wPlain>12;
     uchar * output = new uchar[cip->getOutputBlockSize()];
     uchar * key    = new uchar[cip->getKeyBlockSize()];
     uchar * input  = new uchar[byteWidth];
@@ -1735,8 +1736,11 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
             
             // For each key, one plaintext cube has to be computed.
             for(uint orderCtr=0; orderCtr <= (wKey+subCube); orderCtr++){ // TODO: subcube computation is not correct!
-                if (verboseLvl>0 && wPlain>12){
-                    cout << " r=" << relationIdx << "; sub=" << subCube << "; orderCtr=" << orderCtr << endl;
+                if (doProgressMonitoring){
+                    cout << " r=" << relationIdx 
+                            << "; sub=" << subCube 
+                            << "; orderCtr=" << orderCtr 
+                            << "; time=" << currentDateTime() << endl;
                 }
                 
                 // Current order to XOR is orderCtr.
@@ -2025,6 +2029,19 @@ long Approximation::cubeOnlineAttack(CubeRelations_vector & keyRelationsVector, 
     delete[] oBuff;
     return rank;
 }
+
+const std::string Approximation::currentDateTime() const {
+    time_t     now = time(0);
+    struct tm  tstruct;
+    char       buf[80];
+    tstruct = *localtime(&now);
+    // Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+    // for more information about date/time format
+    strftime(buf, sizeof(buf), "%Y-%m-%d %X", &tstruct);
+
+    return buf;
+}
+
 
 void Approximation::initFGb(uint numVariables) const {
     fgb.initFGb(numVariables);

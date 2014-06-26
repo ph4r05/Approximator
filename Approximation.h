@@ -395,6 +395,12 @@ public:
     long cubeOnlineAttack(CubeRelations_vector & keyRelationsVector, const uchar * input, uchar * solvedKey) const;
     
     /**
+     * Returns current date time as a formatted string.
+     * @return 
+     */
+    const std::string currentDateTime() const;
+    
+    /**
      * Initializes FGb library.
      * @param numVariables
      */
