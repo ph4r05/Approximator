@@ -98,7 +98,6 @@ int main(int argc, char** argv) {
         case 3:
             cout << "Algorithm=Keccak Assembler optimized 7 round" << endl;
             c = new KeccakOptAsm7r();
-            c->setNumRounds(7);
             break;
         default: 
             cerr << "Unknown algorithm id="<<algId<<endl;
