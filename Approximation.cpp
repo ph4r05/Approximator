@@ -1261,7 +1261,7 @@ int Approximation::subCubeTermThreaded(uint termWeight, const ULONG* termMask,
 }
 
 int Approximation::keyCube(uint wPlain, uint wKey, uint startOrder, uint stopOrder,
-        ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const 
+        const ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const 
 {
     const uint numPlainBits = cip->getInputBlockSize() * 8;
     const uint numKeyBits = cip->getKeyBlockSize() * 8;
@@ -1505,7 +1505,7 @@ ULONG Approximation::dumpOutputFunctions(std::ostream& c, const std::vector<ULON
 
 int Approximation::keyCubePart(uint wPlain, uint wKey, uint orderCtr,
         uint subCubesLimit, uint curSubCube, uint step, uint offset, 
-        ULONG* termMask, std::vector<ULONG>* keyCubes, ULONG* isSuperpoly) const 
+        const ULONG* termMask, std::vector<ULONG>* keyCubes, ULONG* isSuperpoly) const 
 {
     const uint numKeyBits   = cip->getKeyBlockSize() * 8;
     const uint numPlainBits = cip->getInputBlockSize() * 8;

@@ -107,7 +107,7 @@ private:
     // Signal blocking variables.
     sigset_t pendingSignals, blockingMask;
     
-    // Verbosivity level
+    // Verbosity level
     uint verboseLvl;
     
 public:
@@ -335,7 +335,7 @@ public:
      * @return 
      */
     int keyCube(uint wPlain, uint wKey, uint startOrder, uint stopOrder,
-        ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
+        const ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
     
     /**
      * Computes key cube on the given data.
@@ -359,7 +359,7 @@ public:
      */
     int keyCubePart(uint wPlain, uint wKey, uint orderCtr,
         uint subCubesLimit, uint curSubCube, uint step, uint offset,
-        ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
+        const ULONG * termMask, std::vector<ULONG> * keyCubes, ULONG * isSuperpoly) const;
     
     /**
      * Cube attack.
