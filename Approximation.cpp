@@ -1516,6 +1516,9 @@ int Approximation::keyCubePart(uint wPlain, uint wKey, uint orderCtr,
     ULONG * tmpCombination = new ULONG[orderCtr+1];
     CombinatiorialGenerator ** cgenerators = new CombinatiorialGenerator * [orderCtr];
     ULONG globalCtr = 0;
+    double totalComb = 0.0;
+    bool doProgressMonitoring = offset==0 && verboseLvl>0 && wPlain>12;
+    ProgressMonitor pm(0.01);
     
     // Init combination generators needed for XORing with sub terms.
     for(uint i=0; i < orderCtr; i++){
@@ -1523,7 +1526,9 @@ int Approximation::keyCubePart(uint wPlain, uint wKey, uint orderCtr,
     }
     
     // Current order to XOR is orderCtr.
-    CombinatiorialGenerator cg(numKeyBits, orderCtr);            
+    CombinatiorialGenerator cg(numKeyBits, orderCtr);      
+    totalComb = cg.getTotalNum();
+    
     for(; cg.next(); globalCtr++){
         // Parallelization step.
         if (step>1 && ((globalCtr % step) != offset)) continue;
@@ -1599,7 +1604,18 @@ int Approximation::keyCubePart(uint wPlain, uint wKey, uint orderCtr,
         // linear relation in it...
         for(uint octr=0; orderCtr>0 && octr<resultSize; octr++){
             isSuperpoly[octr] |= oBuff[octr];
-        }   
+        }
+        
+        // Progress monitoring.
+        if (doProgressMonitoring){
+            pm.setCur((double)cg.getCounter() / totalComb);
+        }
+    }
+    
+    // Progress monitoring.
+    if (doProgressMonitoring){
+        pm.setCur(1.0);
+        cout << endl;
     }
     
     // Destroy combination generators.
@@ -1719,6 +1735,10 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
             
             // For each key, one plaintext cube has to be computed.
             for(uint orderCtr=0; orderCtr <= (wKey+subCube); orderCtr++){ // TODO: subcube computation is not correct!
+                if (verboseLvl>0 && wPlain>12){
+                    cout << " r=" << relationIdx << "; sub=" << subCube << "; orderCtr=" << orderCtr << endl;
+                }
+                
                 // Current order to XOR is orderCtr.
                 // If order is 0, do not parallelize.
                 uint threadNum = orderCtr==0 ? 1 : this->threadCount;
