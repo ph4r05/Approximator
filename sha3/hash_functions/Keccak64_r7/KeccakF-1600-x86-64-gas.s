@@ -612,17 +612,17 @@ loopEnd\@:
 		.endm
 
 .macro mKeccakPermutation      rounds
+                cmp $7, \rounds
+                je mKP7\@
+                cmp $8, \rounds
+                je mKP8\@
                 cmp $1, \rounds
                 je mKP1\@
                 cmp $2, \rounds
                 je mKP2\@
                 cmp $3, \rounds
                 je mKP3\@
-                cmp $7, \rounds
-                je mKP7\@
-                cmp $8, \rounds
-                je mKP8\@
-
+                
                 # Default case
                 jmp mKP24\@         
 mKP1\@:
