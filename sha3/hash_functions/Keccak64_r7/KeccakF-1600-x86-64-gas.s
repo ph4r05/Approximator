@@ -534,6 +534,54 @@ loopEnd\@:
 
 		.endm
 
+.macro	mKeccakPermutation4
+                # Keccak permutation initialization
+                mKeccakPermutationInit
+
+                # Keccak rounds
+		mKeccakRound	rpState, rpStack, 0x0000000000000001, 0
+		mKeccakRound	rpStack, rpState, 0x0000000000008082, 0
+		mKeccakRound	rpState, rpStack, 0x800000000000808a, 0
+		mKeccakRound	rpStack, rpState, 0x8000000080008000, 1
+
+		addq		$8*25, %rsp
+
+		.endm
+
+.macro	mKeccakPermutation5	
+                # Keccak permutation initialization
+                mKeccakPermutationInit
+
+                # Keccak rounds
+		mKeccakRound	rpState, rpStack, 0x0000000000000001, 0
+		mKeccakRound	rpStack, rpState, 0x0000000000008082, 0
+		mKeccakRound	rpState, rpStack, 0x800000000000808a, 0
+		mKeccakRound	rpStack, rpState, 0x8000000080008000, 0
+		mKeccakRound	rpState, rpStack, 0x000000000000808b, 1
+
+                # Copy rpStack to rpState, last round is odd.
+                mKeccakCopyStateUnrolled rpStack, rpState
+
+		addq		$8*25, %rsp
+
+		.endm
+
+.macro	mKeccakPermutation6	
+                # Keccak permutation initialization
+                mKeccakPermutationInit
+
+                # Keccak rounds
+		mKeccakRound	rpState, rpStack, 0x0000000000000001, 0
+		mKeccakRound	rpStack, rpState, 0x0000000000008082, 0
+		mKeccakRound	rpState, rpStack, 0x800000000000808a, 0
+		mKeccakRound	rpStack, rpState, 0x8000000080008000, 0
+		mKeccakRound	rpState, rpStack, 0x000000000000808b, 0
+		mKeccakRound	rpStack, rpState, 0x0000000080000001, 1
+
+		addq		$8*25, %rsp
+
+		.endm
+
 .macro	mKeccakPermutation7	
                 # Keccak permutation initialization
                 mKeccakPermutationInit
@@ -622,6 +670,12 @@ loopEnd\@:
                 je mKP2\@
                 cmp $3, \rounds
                 je mKP3\@
+                cmp $4, \rounds
+                je mKP4\@
+                cmp $5, \rounds
+                je mKP5\@
+                cmp $6, \rounds
+                je mKP6\@
                 
                 # Default case
                 jmp mKP24\@         
@@ -633,6 +687,15 @@ mKP2\@:
                 jmp mKeccakPermutationEnd\@
 mKP3\@:
                 mKeccakPermutation3
+                jmp mKeccakPermutationEnd\@
+mKP4\@:
+                mKeccakPermutation4
+                jmp mKeccakPermutationEnd\@
+mKP5\@:
+                mKeccakPermutation5
+                jmp mKeccakPermutationEnd\@
+mKP6\@:
+                mKeccakPermutation6
                 jmp mKeccakPermutationEnd\@
 mKP7\@:
                 mKeccakPermutation7

@@ -18,7 +18,7 @@ KeccakOptAsm7r::~KeccakOptAsm7r() {
 }
 
 int KeccakOptAsm7r::setNumRounds(int rounds) { 
-    if (rounds!=1 && rounds!=2 && rounds!=3 && rounds!=7 && rounds!=8 && rounds!=24){
+    if (rounds!=24 && (rounds<1 || rounds>8)){
         return -1;
     }
     
