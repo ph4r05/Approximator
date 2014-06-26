@@ -12,10 +12,28 @@
 # Compiled Static libraries
 *.lai
 *.la
-*.a
+#*.a
 *.lib
 
 # Executables
 *.exe
 *.out
 *.app
+
+# Binary files
+*.bin
+
+# NTL library
+ntl-6.0.0/**
+
+# Faugere library
+grobner_faugere/**
+
+# Build directory
+build/**
+
+# Temporary files
+**~
+callgrind**
+cube**xml
+
