@@ -1478,6 +1478,10 @@ ULONG Approximation::dumpOutputFunctions(std::ostream& c, const std::vector<ULON
         uint maxOrder, uint numVariables, uint numPoly, bool nonNullOnly, uint fmt) const 
 {
     ULONG totalTerms = 0;
+    sigset_t originalMask;
+    sigemptyset(&originalMask);
+    sigprocmask(SIG_BLOCK, &blockingMask, &originalMask);
+    
     for(uint s=0; s<numPoly; s++){
         stringstream ss;
         ULONG cNumTerms = dumpCoefficients(ss, coefficients, maxOrder, numVariables, s, fmt);
@@ -1495,6 +1499,7 @@ ULONG Approximation::dumpOutputFunctions(std::ostream& c, const std::vector<ULON
         }
     }
     
+    sigprocmask(SIG_SETMASK, &originalMask, NULL);
     return totalTerms;
 }
 
