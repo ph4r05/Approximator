@@ -35,6 +35,15 @@ def bitName2bitCoords(bitname):
     if bitname=="1": return "1"
     return bitname[0] + str(tranTableY[bitname[1]]) + str(tranTableX[bitname[2]]) + bitname[3:]
 
+def bitName2bitCoordsStr(bitname):
+    '''Translates bitname to bit coordinates, Aba13 -> A0013. Handles multiple order'''
+    bitname=str(bitname).strip()
+    if bitname=="1": return "1"
+    if "*" in bitname:
+        return "*".join([bitName2bitCoordsStr(x) for x in bitname.split("*")])
+    else:
+        return bitName2bitCoords(bitname)
+
 def bitName2variable(bitname):
     '''Translates bitname to variable index.'''
     bitname=str(bitname).strip()
@@ -43,6 +52,15 @@ def bitName2variable(bitname):
     y = tranTableY[bitname[1]]
     z = int(bitname[3:])
     return (64*(5*y+x)+z)
+
+def bitName2variableStr(bitname):
+    '''Translate bitname to variable string, handles multiple order'''
+    bitname=str(bitname).strip()
+    if bitname=="1": return "1"
+    if "*" in bitname:
+        return "*".join([bitName2variableStr(x) for x in bitname.split("*")])
+    else:
+        return "x_" + str(bitName2variable(bitname))
 
 def addition2termList(input):
     '''Converts addition of the variables to the list representation'''
@@ -120,10 +138,9 @@ def listDump(lst, fmt, doSort=True):
     if fmt==0:
         res = " + ".join([x for x in lst])
     elif fmt==1:
-        res = " + ".join([bitName2bitCoords(x) for x in lst])
+        res = " + ".join([bitName2bitCoordsStr(x) for x in lst])
     elif fmt==2:
-        bitIdx = [bitName2variable(x) for x in lst]
-        res = " + ".join("x_"+str(x) if x>=0 else "1" for x in bitIdx)
+        res = " + ".join([bitName2variableStr(x) for x in lst])
     return res
 
 if __name__ == "__main__":
