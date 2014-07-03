@@ -1,5 +1,5 @@
 /* 
- * File:   KeccakOptAsm7r.h
+ * File:   KeccakOptAsm.h
  * Author: ph4r05
  *
  * Created on June 23, 2014, 2:40 PM
@@ -13,14 +13,14 @@
 #include "base.h"
 #include "ICipher.h"
 
-class KeccakOptAsm7r : public ICipher {
+class KeccakOptAsm : public ICipher {
 private:
     unsigned rounds;
     unsigned char key[16];
     
 public:
-    KeccakOptAsm7r();
-    virtual ~KeccakOptAsm7r();
+    KeccakOptAsm();
+    virtual ~KeccakOptAsm();
         
     virtual unsigned getId() const { return 3; }
     virtual unsigned getInputBlockSize() const        { return 16; };

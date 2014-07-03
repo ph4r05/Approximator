@@ -42,9 +42,9 @@ OBJECTFILES= \
 	${OBJECTDIR}/CombinatorialIndexer.o \
 	${OBJECTDIR}/FGbHelper.o \
 	${OBJECTDIR}/ICipher.o \
+	${OBJECTDIR}/Keccak1600.o \
 	${OBJECTDIR}/Keccak2.o \
-	${OBJECTDIR}/KeccakFull.o \
-	${OBJECTDIR}/KeccakOptAsm7r.o \
+	${OBJECTDIR}/KeccakOptAsm.o \
 	${OBJECTDIR}/Logger.o \
 	${OBJECTDIR}/MultiCombinatorialGenerator.o \
 	${OBJECTDIR}/NTLUtils.o \
@@ -117,20 +117,20 @@ ${OBJECTDIR}/ICipher.o: ICipher.cpp
 	${RM} "$@.d"
 	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/ICipher.o ICipher.cpp
 
+${OBJECTDIR}/Keccak1600.o: Keccak1600.cpp 
+	${MKDIR} -p ${OBJECTDIR}
+	${RM} "$@.d"
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Keccak1600.o Keccak1600.cpp
+
 ${OBJECTDIR}/Keccak2.o: Keccak2.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
 	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/Keccak2.o Keccak2.cpp
 
-${OBJECTDIR}/KeccakFull.o: KeccakFull.cpp 
+${OBJECTDIR}/KeccakOptAsm.o: KeccakOptAsm.cpp 
 	${MKDIR} -p ${OBJECTDIR}
 	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/KeccakFull.o KeccakFull.cpp
-
-${OBJECTDIR}/KeccakOptAsm7r.o: KeccakOptAsm7r.cpp 
-	${MKDIR} -p ${OBJECTDIR}
-	${RM} "$@.d"
-	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/KeccakOptAsm7r.o KeccakOptAsm7r.cpp
+	$(COMPILE.cc) -O2 -I. -Ifaugere -Ifaugere/int -Ifaugere/protocol `pkg-config --cflags libcrypto` -std=c++11  -MMD -MP -MF "$@.d" -o ${OBJECTDIR}/KeccakOptAsm.o KeccakOptAsm.cpp
 
 ${OBJECTDIR}/Logger.o: Logger.cpp 
 	${MKDIR} -p ${OBJECTDIR}

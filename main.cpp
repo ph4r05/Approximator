@@ -6,13 +6,16 @@
  */
 
 #include <cstdlib>
+#include <fstream>
+#include <iomanip>
 
 #include "base.h"
 #include "Approximation.h"
 #include "AESCipher.h"
 #include "CombinatiorialGenerator.h"
 #include "Keccak2.h"
-#include "KeccakOptAsm7r.h"
+#include "KeccakOptAsm.h"
+#include "Keccak1600.h"
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
@@ -45,16 +48,15 @@ int main(int argc, char** argv) {
             ("rounds,r",       po::value<int>()->default_value(-1)->implicit_value(-1), "Number of rounds of the cipher.")
             ("threads,t",      po::value<uint>()->default_value(1)->implicit_value(1),  "Number of threads to use for computation.")
             ("cube",           po::value<uint>()->default_value(0)->implicit_value(0),  "Starts cube attack.")
-            ("alg",            po::value<uint>()->default_value(0)->implicit_value(0),  "Algorithm to analyze. 0=AES, 1=Keccak, 3=Keccak assm optimized")
+            ("alg",            po::value<uint>()->default_value(0)->implicit_value(0),  "Algorithm to analyze. 0=AES, 1=Keccak, 2=Keccak 1600 (no key), 3=Keccak assembler optimized")
             ("relations",      po::value<uint>()->default_value(128)->implicit_value(128),  "Number of relations finding rounds.")
             ("subcube",        po::value<uint>()->default_value(0)->implicit_value(0),  "Subcubes to compute in parallel.")
             ("wkey",           po::value<uint>()->default_value(1)->implicit_value(1),  "Weight of the key cube.")
             ("verbose",        po::value<uint>()->default_value(1)->implicit_value(1),  "Verbosivity level.")
             ("saverel",        po::value<bool>()->default_value(true)->implicit_value(true),  "Save relations to a file.")
             ("dumprel",        po::value<bool>()->default_value(false)->implicit_value(false),  "Dump all relations found (for statistical testing).")
-//            ("out-file,o",     po::value<std::string>(),                                       "Output file to write encrypted data")
-//            ("input-files",    po::value<std::vector<std::string>>(),                          "Input files")
-//            ("create-table",   po::value<std::string>(),                                       "Create encryption/decryption tables");
+            ("dump-approx",    po::value<std::string>(),                                "File where to dump approximation of the function.")
+            ("dump-format",    po::value<uint>()->default_value(1)->implicit_value(1),  "Output dump format. 1=ASCII, 2=Binary, newline, 3=Binary") 
     ;
             
     po::positional_options_description p;
@@ -95,9 +97,13 @@ int main(int argc, char** argv) {
             cout << "Algorithm=Keccak" << endl;
             c = new Keccak2();
             break;
+        case 2:
+            cout << "Algorithm=Keccak1600 (no key)" << endl;
+            c = new Keccak1600();
+            break;
         case 3:
-            cout << "Algorithm=Keccak Assembler optimized 7 round" << endl;
-            c = new KeccakOptAsm7r();
+            cout << "Algorithm=Keccak Assembler optimized" << endl;
+            c = new KeccakOptAsm();
             break;
         default: 
             cerr << "Unknown algorithm id="<<algId<<endl;
@@ -149,6 +155,17 @@ int main(int argc, char** argv) {
     if (cube==0){
         cout << "Computing coefficients" << endl;
         ap.computeCoefficients(ap.getCoefficients());
+        
+        // If coefficient approximation is desired.
+        if (vm.count("dump-approx")){
+            std::string approxFile = vm["dump-approx"].as<std::string>();
+            ofstream relOf(approxFile.c_str(), ios_base::app);
+            ap.dumpOutputFunctions(relOf, ap.getCoefficients(), orderLimit, 
+                    c->getKeyBlockSize()*8 + c->getInputBlockSize()*8,
+                    c->getOutputBlockSize()*8,
+                    false,
+                    vm["dump-format"].as<uint>());
+        }
     }
         
     // Test approximation correctness

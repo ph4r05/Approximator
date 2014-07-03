@@ -33,8 +33,8 @@
       <itemPath>AESCipherOpenSSL.h</itemPath>
       <itemPath>CombinatorialIndexer.h</itemPath>
       <itemPath>FGbHelper.h</itemPath>
-      <itemPath>KeccakFull.h</itemPath>
-      <itemPath>KeccakOptAsm7r.h</itemPath>
+      <itemPath>Keccak1600.h</itemPath>
+      <itemPath>KeccakOptAsm.h</itemPath>
       <itemPath>MultiCombinatorialGenerator.h</itemPath>
       <itemPath>ProgressMonitor.h</itemPath>
       <itemPath>faugere/aes.h</itemPath>
@@ -79,8 +79,8 @@
       <itemPath>AESCipherOpenSSL.cpp</itemPath>
       <itemPath>CombinatorialIndexer.cpp</itemPath>
       <itemPath>FGbHelper.cpp</itemPath>
-      <itemPath>KeccakFull.cpp</itemPath>
-      <itemPath>KeccakOptAsm7r.cpp</itemPath>
+      <itemPath>Keccak1600.cpp</itemPath>
+      <itemPath>KeccakOptAsm.cpp</itemPath>
       <itemPath>KeccakTest.cpp</itemPath>
       <itemPath>MultiCombinatorialGenerator.cpp</itemPath>
       <itemPath>ProgressMonitor.cpp</itemPath>
@@ -188,17 +188,17 @@
       </item>
       <item path="ICipher.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="Keccak1600.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="Keccak1600.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="Keccak2.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="Keccak2.h" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="KeccakFull.cpp" ex="false" tool="1" flavor2="0">
+      <item path="KeccakOptAsm.cpp" ex="false" tool="1" flavor2="0">
       </item>
-      <item path="KeccakFull.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="KeccakOptAsm7r.cpp" ex="false" tool="1" flavor2="0">
-      </item>
-      <item path="KeccakOptAsm7r.h" ex="false" tool="3" flavor2="0">
+      <item path="KeccakOptAsm.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="Logger.cpp" ex="false" tool="1" flavor2="0">
       </item>
@@ -398,17 +398,17 @@
       </item>
       <item path="ICipher.h" ex="false" tool="3" flavor2="0">
       </item>
+      <item path="Keccak1600.cpp" ex="false" tool="1" flavor2="0">
+      </item>
+      <item path="Keccak1600.h" ex="false" tool="3" flavor2="0">
+      </item>
       <item path="Keccak2.cpp" ex="false" tool="1" flavor2="0">
       </item>
       <item path="Keccak2.h" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="KeccakFull.cpp" ex="false" tool="1" flavor2="0">
+      <item path="KeccakOptAsm.cpp" ex="false" tool="1" flavor2="0">
       </item>
-      <item path="KeccakFull.h" ex="false" tool="3" flavor2="0">
-      </item>
-      <item path="KeccakOptAsm7r.cpp" ex="false" tool="1" flavor2="0">
-      </item>
-      <item path="KeccakOptAsm7r.h" ex="false" tool="3" flavor2="0">
+      <item path="KeccakOptAsm.h" ex="false" tool="3" flavor2="0">
       </item>
       <item path="Logger.cpp" ex="false" tool="1" flavor2="0">
       </item>
