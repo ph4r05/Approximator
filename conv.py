@@ -53,18 +53,22 @@ def bitName2variable(bitname):
     z = int(bitname[3:])
     return (64*(5*y+x)+z)
 
-def bitName2variableStr(bitname):
+def bitName2variableStr(bitname, varPrefix="x_", zeroPad=0):
     '''Translate bitname to variable string, handles multiple order'''
-    bitname=str(bitname).strip()
-    if bitname=="1": return "1"
+    if bitname=="1": return "1".zfill(zeroPad)
     if "*" in bitname:
-        return "*".join([bitName2variableStr(x) for x in bitname.split("*")])
+        return "*".join([bitName2variableStr(x, varPrefix, zeroPad) for x in bitname.split("*")])
     else:
-        return "x_" + str(bitName2variable(bitname))
+        return varPrefix + str(bitName2variable(bitname)).zfill(zeroPad)
 
 def addition2termList(input):
     '''Converts addition of the variables to the list representation'''
     return [str(x).strip() for x in input.split('+') if (str(x).strip())]
+
+def getTermOrder(trm):
+    '''Returns term order. Constant = 0, linear = 1, quadratic = 2'''
+    if trm=='1' or trm==False or trm=='' or trm=='0': return 0
+    return trm.count('*')+1
 
 def bitnameCmp(x, y):
     '''Lexicographic comparison of the terms'''
@@ -130,7 +134,7 @@ def multiplyLists(a,b):
     linList.sort()
     return linList + resList
 
-def listDump(lst, fmt, doSort=True):
+def listDump(lst, fmt, doSort=True, isLhs=False):
     '''Dumps variable list in given format as string'''
     if doSort:
         lst = sorted(lst, key=cmp_to_key(bitnameCmp))
@@ -140,7 +144,7 @@ def listDump(lst, fmt, doSort=True):
     elif fmt==1:
         res = " + ".join([bitName2bitCoordsStr(x) for x in lst])
     elif fmt==2:
-        res = " + ".join([bitName2variableStr(x) for x in lst])
+        res = " + ".join([bitName2variableStr(x) for x in lst])    
     return res
 
 if __name__ == "__main__":
@@ -178,17 +182,40 @@ if __name__ == "__main__":
             yyl=addition2termList(yy)
             zzl=addition2termList(zz)
             cs =addition2termList(cs) 
+            totalList = []
             
             if args.multiply>0:
                 mList = multiplyLists(yyl, zzl)
                 totalList = gf2ize(cs + xxl + mList)
+            
+            if args.format==3:
+                lst = sorted(totalList, key=cmp_to_key(bitnameCmp))
+                orderArr = [[],[],[]]
+                for e in lst:
+                    curOrder = getTermOrder(e)
+                    curVar = bitName2variableStr(e, "", 4)
+                    orderArr[curOrder].append(curVar)
                 
-                print listDump([lhs], args.format) + " = " + listDump(totalList, args.format)
+                quadsA = sorted(yyl, key=cmp_to_key(bitnameCmp))
+                quadsA = [bitName2variableStr(x, "", 4) for x in quadsA if x!= '1']
+                
+                quadsB = sorted(zzl, key=cmp_to_key(bitnameCmp))
+                quadsB = [bitName2variableStr(x, "", 4) for x in quadsB if x!= '1']
+                
+                res  = bitName2variableStr(lhs, "", 4)+"="
+                res +=     (",".join(quadsA))
+                res += ";"+(",".join(quadsB))+";"
+                res += ";".join([",".join(x) for x in orderArr])
+                
+                print res
                 continue
             
+            if args.multiply>0:
+                print listDump([lhs], args.format, True, True) + " = " + listDump(totalList, args.format, True, False)
+                continue
             
-            print listDump([lhs], args.format) + " = " + listDump(cs + xxl, args.format) \
-                + " + (" + listDump(yyl, args.format) + ")*(" + listDump(zzl, args.format) + ")"
+            print listDump([lhs], args.format, True, True) + " = " + listDump(cs + xxl, args.format, True, False) \
+                + " + (" + listDump(yyl, args.format, True, False) + ")*(" + listDump(zzl, args.format, True, False) + ")"
         pass
     pass
 pass
