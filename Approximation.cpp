@@ -1474,6 +1474,19 @@ ULONG Approximation::dumpCoefficients(std::ostream& c, const std::vector<ULONG>*
     return numterms;
 }
 
+ULONG Approximation::dumpPlaintextCube(std::ostream & c, ULONG * pcube, uint pcubeSize) const {
+    uint maxCubeBit = pcubeSize * SIZEOF_ULONG * 8;
+    for(uint curBit=0; curBit < maxCubeBit; curBit++){
+        const uint bitSeg = curBit / (8*SIZEOF_ULONG);
+        const uint bitPos = curBit % (8*SIZEOF_ULONG);
+        const ULONG bitMask = ULONG1 << bitPos;
+        if ((pcube[bitSeg] & bitMask) != bitMask) continue;
+        c << "p_" << dec << curBit << " ";
+    }
+    
+    return 0;
+}
+
 ULONG Approximation::dumpOutputFunctions(std::ostream& c, const std::vector<ULONG>* coefficients, 
         uint maxOrder, uint numVariables, uint numPoly, bool nonNullOnly, uint fmt) const 
 {
@@ -1861,7 +1874,9 @@ int Approximation::cubeAttack(uint wPlain, uint wKey, uint numRelations, uint su
                     
                     cout << "2We have " << sysoCtr  
                             << " sysovin, total=" << ((double)sysoCtr / (termCount*outputWidthUlong*SIZEOF_ULONG*8.0)) 
-                            << endl;
+                            << "; plaintext cube: ";
+                    dumpPlaintextCube(cout, subTermMask, inputWidthUlong);
+                    cout << endl;
                     
                     // Save relations.
                     nonzeroCoutner+=1;

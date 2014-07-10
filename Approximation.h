@@ -299,6 +299,20 @@ public:
         uint numVariables, uint numPoly, bool nonNullOnly=true, uint fmt=1) const;
     
     /**
+     * Dumps plaintext cube to the ASCII.
+     * 
+     * @param wPlain
+     * @param wKey
+     * @param startOrder
+     * @param stopOrder
+     * @param termMask
+     * @param keyCubes
+     * @param isSuperpoly
+     * @return 
+     */
+    ULONG dumpPlaintextCube(std::ostream & c, ULONG * pcube, uint pcubeSize) const;
+    
+    /**
      * Generate array of bit positions from left to right. 
      * @param termBitPositions
      * @param bitWidth
